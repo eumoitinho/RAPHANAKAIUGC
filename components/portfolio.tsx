@@ -22,6 +22,7 @@ export function Portfolio() {
   const fetchMedia = async () => {
     setIsLoading(true)
     try {
+      console.log("Fetching media from API...")
       const response = await fetch("/api/media")
 
       if (!response.ok) {
@@ -29,9 +30,10 @@ export function Portfolio() {
       }
 
       const data = await response.json()
+      console.log("Media data received:", data)
 
-      if (!data.media) {
-        console.warn("No media returned from API")
+      if (!data.media || data.media.length === 0) {
+        console.warn("No media returned from API or empty array")
         setMediaItems([])
         setFilteredItems([])
         setIsLoading(false)
@@ -44,6 +46,7 @@ export function Portfolio() {
       const initialFiltered = data.media.filter(
         (item: MediaMetadata) => item.fileType === activeType.toLowerCase().slice(0, -1), // Convert "Videos" to "video"
       )
+      console.log("Initial filtered items:", initialFiltered)
       setFilteredItems(initialFiltered)
     } catch (error) {
       console.error("Error fetching media:", error)
@@ -216,6 +219,20 @@ export function Portfolio() {
               </>
             )}
           </Button>
+          <Button
+            variant="outline"
+            className="ml-2 bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
+            onClick={() => {
+              console.log("Current media items:", mediaItems)
+              console.log("Current filtered items:", filteredItems)
+              toast({
+                title: "Estado atual",
+                description: `${mediaItems.length} itens no total, ${filteredItems.length} filtrados`,
+              })
+            }}
+          >
+            Debug
+          </Button>
         </div>
 
         {/* Loading State */}
@@ -232,19 +249,21 @@ export function Portfolio() {
             {filteredItems.length > 0 ? (
               filteredItems.map((item) => (
                 <div key={item.id} className="relative overflow-hidden rounded-lg bg-[#1e1e1e] group">
+                  {console.log("Rendering item:", item.id, item.title, item.fileType)}
                   {item.fileType === "video" ? (
                     <div className="aspect-[9/16] relative">
                       <video
                         ref={(el) => {
                           if (el) videoRefs.current[item.id] = el
                         }}
-                        poster={item.thumbnailUrl}
+                        poster={item.thumbnailUrl || "/placeholder.svg?height=400&width=300"}
                         src={item.fileUrl}
                         muted={isMuted}
                         loop
                         playsInline
                         className="w-full h-full object-cover"
                         onEnded={handleVideoEnded}
+                        onError={(e) => console.error("Video loading error:", e, item.fileUrl)}
                       />
 
                       {/* Video Controls */}
@@ -303,7 +322,17 @@ export function Portfolio() {
                     </div>
                   ) : (
                     <div className="aspect-[9/16] relative">
-                      <Image src={item.fileUrl || "/placeholder.svg"} alt={item.title} fill className="object-cover" />
+                      <Image
+                        src={item.fileUrl || "/placeholder.svg?height=400&width=300"}
+                        alt={item.title}
+                        fill
+                        className="object-cover"
+                        onError={(e) => {
+                          console.error("Image loading error:", e)
+                          // Fallback to placeholder if image fails to load
+                          ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=400&width=300"
+                        }}
+                      />
 
                       {/* Image Overlay */}
                       <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
@@ -331,7 +360,13 @@ export function Portfolio() {
             ) : (
               <div className="col-span-full text-center py-10 text-gray-400">
                 {mediaItems.length === 0 ? (
-                  <>Nenhum item encontrado. Adicione conteúdo no painel de administração.</>
+                  <>
+                    Nenhum item encontrado. Adicione conteúdo no painel de administração.
+                    <p className="mt-2 text-sm">
+                      Status da API: {isLoading ? "Carregando..." : "Concluído"} | Itens totais: {mediaItems.length} |
+                      Filtrados: {filteredItems.length}
+                    </p>
+                  </>
                 ) : (
                   "Nenhum item encontrado com os filtros selecionados."
                 )}

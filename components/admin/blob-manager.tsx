@@ -233,10 +233,41 @@ export function BlobManager() {
       {selectedItems.length > 0 && (
         <div className="bg-[#252525] p-3 rounded-md mb-6 flex justify-between items-center">
           <span>{selectedItems.length} item(s) selecionado(s)</span>
-          <Button variant="destructive" size="sm" onClick={deleteSelectedItems} className="bg-red-600 hover:bg-red-700">
-            <Trash2 size={16} className="mr-2" />
-            Excluir
-          </Button>
+          <div className="flex items-center">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={deleteSelectedItems}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 size={16} className="mr-2" />
+              Excluir
+            </Button>
+            <Button
+              variant="outline"
+              className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333] ml-2"
+              onClick={async () => {
+                try {
+                  const response = await fetch("/api/debug")
+                  const data = await response.json()
+                  console.log("Debug data:", data)
+                  toast({
+                    title: "Informações de depuração",
+                    description: `Metadados: ${data.metadata.count} itens, Blobs: ${data.blobs.count} itens`,
+                  })
+                } catch (error) {
+                  console.error("Error fetching debug info:", error)
+                  toast({
+                    title: "Erro",
+                    description: "Falha ao obter informações de depuração",
+                    variant: "destructive",
+                  })
+                }
+              }}
+            >
+              Debug Metadata
+            </Button>
+          </div>
         </div>
       )}
 

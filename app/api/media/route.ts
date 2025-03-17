@@ -2,11 +2,14 @@ import { NextResponse } from "next/server"
 import { getAllMediaMetadata, incrementViews } from "@/lib/metadata-storage"
 
 export async function GET(): Promise<NextResponse> {
+  console.log("API: GET /api/media - Request received")
   try {
     const metadata = await getAllMediaMetadata()
+    console.log(`API: GET /api/media - Retrieved ${metadata.length} items`)
+    console.log("API: Media items sample:", metadata.slice(0, 2)) // Log first two items for debugging
     return NextResponse.json({ media: metadata })
   } catch (error) {
-    console.error("Error fetching media metadata:", error)
+    console.error("API: Error fetching media metadata:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },

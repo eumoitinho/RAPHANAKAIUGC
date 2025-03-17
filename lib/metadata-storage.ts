@@ -20,20 +20,25 @@ const METADATA_FILE = "media-metadata.json"
 
 // Function to get all metadata
 export async function getAllMediaMetadata(): Promise<MediaMetadata[]> {
+  console.log("getAllMediaMetadata: Attempting to fetch metadata from Blob storage")
   try {
     // Try to get the metadata file from Blob storage
     const metadataBlob = await get(METADATA_FILE)
 
     if (metadataBlob) {
       // If file exists, parse and return the metadata
+      console.log("getAllMediaMetadata: Metadata file found in Blob storage")
       const metadataText = await metadataBlob.text()
-      return JSON.parse(metadataText)
+      const parsedData = JSON.parse(metadataText)
+      console.log(`getAllMediaMetadata: Successfully parsed ${parsedData.length} items`)
+      return parsedData
     } else {
       // If file doesn't exist yet, return empty array
+      console.log("getAllMediaMetadata: No metadata file found in Blob storage")
       return []
     }
   } catch (error) {
-    console.error("Error fetching metadata:", error)
+    console.error("getAllMediaMetadata: Error fetching metadata:", error)
     return []
   }
 }
