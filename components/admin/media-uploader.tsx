@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { Upload, X, Plus, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,23 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
 import { upload } from "@vercel/blob/client"
-
-// Add function to save media metadata
-const saveMediaToLocalStorage = (mediaData: any) => {
-  if (typeof window === "undefined") return
-
-  const existingMedia = JSON.parse(localStorage.getItem("mediaItems") || "[]")
-  const newMedia = {
-    id: uuidv4(),
-    ...mediaData,
-    views: 0,
-    dateCreated: new Date().toISOString(),
-  }
-
-  existingMedia.push(newMedia)
-  localStorage.setItem("mediaItems", JSON.stringify(existingMedia))
-  return newMedia
-}
+import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg"
 
 export function MediaUploader() {
   const [mediaType, setMediaType] = useState<"video" | "photo">("video")
@@ -40,11 +24,138 @@ export function MediaUploader() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [isCompressing, setIsCompressing] = useState(false)
+  const [compressionProgress, setCompressionProgress] = useState(0)
+  const [compressedFile, setCompressedFile] = useState<File | null>(null)
+  const [compressionQuality, setCompressionQuality] = useState<"high" | "medium" | "low">("medium")
+  const [ffmpegLoaded, setFfmpegLoaded] = useState(false)
+  const ffmpeg = useRef(
+    createFFmpeg({
+      log: true,
+      progress: ({ ratio }) => {
+        setCompressionProgress(Math.round(ratio * 100))
+      },
+    }),
+  )
 
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   const categories = ["Wellness", "ADS", "Experiência", "Beauty", "Pet", "Decor", "Receitas", "Moda"]
+
+  useEffect(() => {
+    const loadFFmpeg = async () => {
+      try {
+        if (!ffmpeg.current.isLoaded()) {
+          await ffmpeg.current.load()
+          setFfmpegLoaded(true)
+          console.log("FFmpeg loaded successfully")
+        }
+      } catch (error) {
+        console.error("Error loading FFmpeg:", error)
+        toast({
+          title: "Aviso",
+          description: "Não foi possível carregar o compressor de vídeo. O upload será feito sem compressão.",
+          variant: "default",
+        })
+      }
+    }
+
+    loadFFmpeg()
+
+    return () => {
+      // Cleanup function
+      if (ffmpeg.current.isLoaded()) {
+        ffmpeg.current.exit()
+      }
+    }
+  }, [])
+
+  const compressVideo = async (file: File): Promise<File> => {
+    if (!ffmpeg.current.isLoaded() || mediaType !== "video") {
+      return file // Return original file if FFmpeg is not loaded or if it's not a video
+    }
+
+    setIsCompressing(true)
+    setCompressionProgress(0)
+
+    try {
+      const inputName = "input.mp4"
+      const outputName = "output.mp4"
+
+      // Write the file to memory
+      ffmpeg.current.FS("writeFile", inputName, await fetchFile(file))
+
+      // Set compression parameters based on quality setting
+      let crf = "23" // Default medium quality (lower is better quality, higher is smaller file)
+      let preset = "medium" // Encoding speed (slower = better compression)
+
+      switch (compressionQuality) {
+        case "high":
+          crf = "18" // Higher quality
+          preset = "slow" // Slower encoding for better quality
+          break
+        case "medium":
+          crf = "23" // Medium quality
+          preset = "medium"
+          break
+        case "low":
+          crf = "28" // Lower quality
+          preset = "fast" // Faster encoding
+          break
+      }
+
+      // Run the FFmpeg command
+      await ffmpeg.current.run(
+        "-i",
+        inputName,
+        "-c:v",
+        "libx264", // Video codec
+        "-crf",
+        crf, // Constant Rate Factor (quality)
+        "-preset",
+        preset, // Encoding speed
+        "-c:a",
+        "aac", // Audio codec
+        "-b:a",
+        "128k", // Audio bitrate
+        "-movflags",
+        "+faststart", // Optimize for web streaming
+        outputName,
+      )
+
+      // Read the result
+      const data = ffmpeg.current.FS("readFile", outputName)
+
+      // Create a new file from the result
+      const compressedBlob = new Blob([data.buffer], { type: "video/mp4" })
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + "_compressed.mp4", {
+        type: "video/mp4",
+        lastModified: Date.now(),
+      })
+
+      console.log(`Original size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`)
+      console.log(`Compressed size: ${(compressedFile.size / (1024 * 1024)).toFixed(2)} MB`)
+      console.log(`Compression ratio: ${((compressedFile.size / file.size) * 100).toFixed(2)}%`)
+
+      // Clean up
+      ffmpeg.current.FS("unlink", inputName)
+      ffmpeg.current.FS("unlink", outputName)
+
+      setCompressedFile(compressedFile)
+      return compressedFile
+    } catch (error) {
+      console.error("Error during video compression:", error)
+      toast({
+        title: "Erro na compressão",
+        description: "Ocorreu um erro ao comprimir o vídeo. O arquivo original será usado.",
+        variant: "destructive",
+      })
+      return file // Return original file if compression fails
+    } finally {
+      setIsCompressing(false)
+    }
+  }
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -98,40 +209,103 @@ export function MediaUploader() {
     setUploadProgress(10)
 
     try {
-      // Upload thumbnail using client-side upload
+      // Compress video if it's a video file
+      let fileToUpload = mediaFile
+      if (mediaType === "video" && ffmpegLoaded) {
+        setUploadProgress(5)
+        toast({
+          title: "Comprimindo vídeo",
+          description: "Aguarde enquanto o vídeo é comprimido...",
+        })
+        fileToUpload = await compressVideo(mediaFile)
+        setUploadProgress(15)
+      }
+
+      // Generate a unique ID for this media item
+      const mediaId = uuidv4()
+      const timestamp = Date.now()
+
+      // First upload the thumbnail
       setUploadProgress(20)
-      const thumbnailFilename = `thumbnail-${Date.now()}-${thumbnailFile.name}`
+      const thumbnailFilename = `thumbnail-${timestamp}-${mediaId}-${thumbnailFile.name}`
       console.log("Uploading thumbnail...")
 
       const thumbnailBlob = await upload(thumbnailFilename, thumbnailFile, {
         access: "public",
         handleUploadUrl: "/api/upload-handler",
+        clientPayload: JSON.stringify({
+          mediaId,
+          isThumb: true,
+        }),
+        onUploadProgress: ({ percentage }) => {
+          // Scale progress from 20-50%
+          setUploadProgress(20 + Math.round(percentage * 0.3))
+        },
       })
 
       console.log("Thumbnail uploaded:", thumbnailBlob)
       setUploadProgress(50)
 
-      // Upload media file using client-side upload
-      const mediaFilename = `${mediaType}-${Date.now()}-${mediaFile.name}`
+      // Then upload the media file with metadata including the thumbnail URL
+      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`
       console.log("Uploading media file...")
 
-      const mediaBlob = await upload(mediaFilename, mediaFile, {
+      // Prepare metadata
+      const metadata = {
+        title,
+        description,
+        fileType: mediaType,
+        categories: selectedCategories,
+      }
+
+      const mediaBlob = await upload(mediaFilename, fileToUpload, {
         access: "public",
         handleUploadUrl: "/api/upload-handler",
+        clientPayload: JSON.stringify({
+          mediaId,
+          thumbnailUrl: thumbnailBlob.url,
+          metadata,
+        }),
+        onUploadProgress: ({ percentage }) => {
+          // Scale progress from 50-90%
+          setUploadProgress(50 + Math.round(percentage * 0.4))
+        },
       })
 
       console.log("Media uploaded:", mediaBlob)
-      setUploadProgress(80)
+      setUploadProgress(90)
 
-      // Save media metadata to localStorage
-      const newMedia = saveMediaToLocalStorage({
-        title,
-        description,
-        fileUrl: mediaBlob.url,
-        thumbnailUrl: thumbnailBlob.url,
-        fileType: mediaType,
-        categories: selectedCategories,
-      })
+      // Now add the media item to our metadata storage
+      try {
+        const response = await fetch("/api/media/add", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            fileUrl: mediaBlob.url,
+            thumbnailUrl: thumbnailBlob.url,
+            fileType: mediaType,
+            categories: selectedCategories,
+            fileName: mediaFilename,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to save metadata")
+        }
+
+        console.log("Metadata saved successfully")
+      } catch (error) {
+        console.error("Error saving metadata:", error)
+        toast({
+          title: "Aviso",
+          description: "Arquivo enviado, mas houve um erro ao salvar os metadados.",
+          variant: "destructive",
+        })
+      }
 
       setUploadProgress(100)
 
@@ -154,6 +328,7 @@ export function MediaUploader() {
           setThumbnailPreview(null)
           setUploadSuccess(false)
           setUploadProgress(0)
+          setCompressedFile(null)
         }, 2000)
       }, 1000)
     } catch (error) {
@@ -199,6 +374,55 @@ export function MediaUploader() {
                 </button>
               </div>
             </div>
+            {/* Add this UI element for compression quality selection after the Media Type Selection section */}
+            {/* Add this right after the Media Type Selection div */}
+            {mediaType === "video" && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Qualidade da Compressão</label>
+                <div className="flex space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setCompressionQuality("high")}
+                    className={`px-4 py-2 rounded-md ${
+                      compressionQuality === "high"
+                        ? "bg-green-600 text-white"
+                        : "bg-[#252525] text-gray-300 hover:bg-[#333333]"
+                    }`}
+                  >
+                    Alta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompressionQuality("medium")}
+                    className={`px-4 py-2 rounded-md ${
+                      compressionQuality === "medium"
+                        ? "bg-[#d87093] text-white"
+                        : "bg-[#252525] text-gray-300 hover:bg-[#333333]"
+                    }`}
+                  >
+                    Média
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompressionQuality("low")}
+                    className={`px-4 py-2 rounded-md ${
+                      compressionQuality === "low"
+                        ? "bg-amber-600 text-white"
+                        : "bg-[#252525] text-gray-300 hover:bg-[#333333]"
+                    }`}
+                  >
+                    Baixa
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  {compressionQuality === "high"
+                    ? "Alta qualidade, arquivo maior"
+                    : compressionQuality === "medium"
+                      ? "Equilíbrio entre qualidade e tamanho"
+                      : "Arquivo menor, qualidade reduzida"}
+                </p>
+              </div>
+            )}
 
             {/* Title */}
             <div className="mb-6">
@@ -365,6 +589,22 @@ export function MediaUploader() {
               <div
                 className="bg-[#d87093] h-2 rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        {/* Compression Progress */}
+        {isCompressing && (
+          <div className="mt-6">
+            <div className="flex justify-between text-sm mb-1">
+              <span>Comprimindo vídeo...</span>
+              <span>{compressionProgress}%</span>
+            </div>
+            <div className="w-full bg-[#252525] rounded-full h-2">
+              <div
+                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${compressionProgress}%` }}
               ></div>
             </div>
           </div>

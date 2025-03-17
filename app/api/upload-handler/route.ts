@@ -1,5 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
+import { addMediaItem } from "@/lib/metadata-storage"
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody
@@ -13,23 +14,43 @@ export async function POST(request: Request): Promise<NextResponse> {
         // For example: const { user } = await auth(request);
         // if (!user) throw new Error("Not authenticated");
 
+        // Extract metadata from the tokenPayload if provided
+        const clientPayload = body.clientPayload ? JSON.parse(body.clientPayload) : {}
+
         return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "video/mp4", "video/webm","video/mov" , "video/ogg"],
+          allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "video/mp4", "video/webm", "video/ogg"],
           tokenPayload: JSON.stringify({
-            // You can include additional data here that will be available in onUploadCompleted
+            ...clientPayload,
             timestamp: Date.now(),
           }),
         }
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         // This callback is called when the upload is completed
-        // You can use this to update your database or perform other actions
         console.log("Upload completed:", blob, tokenPayload)
 
         try {
-          // You could update a database here
-          // const { timestamp } = JSON.parse(tokenPayload);
-          // await db.update({ blobUrl: blob.url, uploadedAt: new Date(timestamp) });
+          // Parse the token payload to get metadata
+          const payload = JSON.parse(tokenPayload)
+
+          // If this is a media file (not a thumbnail) and has metadata, save it
+          if (payload.metadata && !blob.pathname.includes("thumbnail-")) {
+            await addMediaItem({
+              title: payload.metadata.title,
+              description: payload.metadata.description || "",
+              fileUrl: blob.url,
+              thumbnailUrl: payload.thumbnailUrl || "",
+              fileType: payload.metadata.fileType,
+              categories: payload.metadata.categories,
+              fileName: blob.pathname,
+            })
+          }
+
+          // If this is a thumbnail, update the corresponding media item
+          if (blob.pathname.includes("thumbnail-") && payload.mediaId) {
+            // This would be implemented in a real database scenario
+            // For now, we'll handle this in the client-side upload
+          }
         } catch (error) {
           console.error("Error in onUploadCompleted:", error)
         }
