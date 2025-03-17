@@ -277,6 +277,7 @@ export function MediaUploader() {
 
       // Now add the media item to our metadata storage
       try {
+        console.log("Adding media item to metadata storage...")
         const response = await fetch("/api/media/add", {
           method: "POST",
           headers: {
@@ -294,15 +295,23 @@ export function MediaUploader() {
         })
 
         if (!response.ok) {
-          throw new Error("Failed to save metadata")
+          const errorText = await response.text()
+          throw new Error(`Failed to save metadata (${response.status}): ${errorText}`)
         }
 
-        console.log("Metadata saved successfully")
+        const result = await response.json()
+        console.log("Metadata saved successfully:", result.item)
+
+        // Show success message with the ID
+        toast({
+          title: "Upload completo",
+          description: `Arquivo enviado com sucesso! ID: ${result.item.id}`,
+        })
       } catch (error) {
         console.error("Error saving metadata:", error)
         toast({
           title: "Aviso",
-          description: "Arquivo enviado, mas houve um erro ao salvar os metadados.",
+          description: `Arquivo enviado, mas houve um erro ao salvar os metadados: ${error instanceof Error ? error.message : String(error)}`,
           variant: "destructive",
         })
       }

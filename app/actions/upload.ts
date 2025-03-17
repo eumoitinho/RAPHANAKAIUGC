@@ -1,9 +1,7 @@
 "use server"
 
-import { writeFile, mkdir } from "fs/promises"
+import { mkdir } from "fs/promises"
 import { existsSync } from "fs"
-import path from "path"
-import { v4 as uuidv4 } from "uuid"
 
 // Função para garantir que o diretório exista
 async function ensureDirectoryExists(dirPath: string) {
@@ -16,7 +14,8 @@ export async function uploadFile(formData: FormData) {
   const response = await fetch("/api/upload", {
     method: "POST",
     body: formData,
-  });
+  })
 
-  return response.json();
+  return response.json()
 }
+

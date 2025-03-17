@@ -26,7 +26,8 @@ export function Portfolio() {
       const response = await fetch("/api/media")
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch media: ${response.status}`)
+        const errorText = await response.text()
+        throw new Error(`Failed to fetch media (${response.status}): ${errorText}`)
       }
 
       const data = await response.json()
@@ -40,12 +41,16 @@ export function Portfolio() {
         return
       }
 
-      setMediaItems(data.media)
+      // Sort by date created (newest first)
+      const sortedMedia = [...data.media].sort(
+        (a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
+      )
+
+      setMediaItems(sortedMedia)
 
       // Initial filtering
-      const initialFiltered = data.media.filter(
-        (item: MediaMetadata) => item.fileType === activeType.toLowerCase().slice(0, -1), // Convert "Videos" to "video"
-      )
+      const fileType = activeType.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
+      const initialFiltered = sortedMedia.filter((item: MediaMetadata) => item.fileType === fileType)
       console.log("Initial filtered items:", initialFiltered)
       setFilteredItems(initialFiltered)
     } catch (error) {

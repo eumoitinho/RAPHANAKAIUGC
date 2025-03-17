@@ -5,13 +5,7 @@ export function Hero() {
     <section className="relative h-screen flex items-center overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/hero.png"
-          alt="Rapha Nakai"
-          fill
-          priority
-          className="object-cover object-center"
-        />
+        <Image src="/images/hero.png" alt="Rapha Nakai" fill priority className="object-cover object-center" />
         <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
       </div>
 

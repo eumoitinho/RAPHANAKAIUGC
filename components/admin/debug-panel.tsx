@@ -14,6 +14,23 @@ export function DebugPanel() {
     setBlobToken(token)
   }
 
+  const checkMetadataFile = async () => {
+    try {
+      const response = await fetch("/api/debug")
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`)
+      }
+      const data = await response.json()
+      console.log("Metadata file status:", data)
+      alert(
+        `Metadata file contains ${data.metadata.count} items (${data.metadata.videos} videos, ${data.metadata.photos} photos) with ${data.metadata.views} total views`,
+      )
+    } catch (error) {
+      console.error("Error checking metadata file:", error)
+      alert(`Error checking metadata file: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   if (!isOpen) {
     return (
       <Button
@@ -57,6 +74,15 @@ export function DebugPanel() {
               )}
             </p>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333] mt-2"
+            onClick={checkMetadataFile}
+          >
+            Check Metadata File
+          </Button>
         </div>
 
         <div>

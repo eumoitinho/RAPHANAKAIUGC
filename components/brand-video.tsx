@@ -52,9 +52,9 @@ export function BrandVideo() {
 
             <div className="pt-4">
               <a href="#projetos" className="text-[#d87093] hover:underline">
-              <Button  className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-6">
-                Ver Projetos <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+                <Button className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-6">
+                  Ver Projetos <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </a>
             </div>
           </div>

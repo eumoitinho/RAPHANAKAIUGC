@@ -24,7 +24,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     const blob = await put(filename, file, {
       access: "public",
       addRandomSuffix: true, // Ensures unique filenames
-
     })
 
     console.log("Upload successful:", blob)
@@ -59,3 +58,4 @@ export async function GET(): Promise<NextResponse> {
     )
   }
 }
+

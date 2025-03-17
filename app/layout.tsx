@@ -12,7 +12,7 @@ const playfair = Playfair_Display({
 export const metadata = {
   title: "Rapha Nakai | Portfolio",
   description: "Portfolio profissional de Rapha Nakai - Fotografia e Direção Criativa",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -30,6 +30,8 @@ export default function RootLayout({
     </html>
   )
 }
+
+import "./globals.css"
 
 
 

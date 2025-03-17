@@ -38,12 +38,7 @@ export function About() {
               <div className="absolute -bottom-6 -right-6 w-32 h-32 border border-[#d87093]/30 rounded-full -z-10"></div>
 
               <div className="relative h-full w-full overflow-hidden rounded-lg">
-                <Image
-                  src="/images/aboutphoto.jpg"
-                  alt="Rapha Nakai"
-                  fill
-                  className="object-cover"
-                />
+                <Image src="/images/aboutphoto.jpg" alt="Rapha Nakai" fill className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
               </div>
 

@@ -46,7 +46,7 @@
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "15.1.0",
-    "next-themes": "^0.4.4",
+    "next-themes": "latest",
     "react": "^19",
     "react-day-picker": "8.10.1",
     "react-dom": "^19",
@@ -59,12 +59,11 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "@tailwindcss/typography": "latest",
-    "@vercel/blob": "latest",
-    "uuid": "latest",
     "fs": "latest",
+    "@vercel/blob": "latest",
     "path": "latest",
-    "@ffmpeg/core": "^0.11.0",
-    "@ffmpeg/ffmpeg": "^0.11.6"
+    "uuid": "latest",
+    "@ffmpeg/ffmpeg": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

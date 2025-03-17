@@ -18,16 +18,26 @@ export default function AdminDashboard() {
   })
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const mediaItems = JSON.parse(localStorage.getItem("mediaItems") || "[]")
-
-      setMediaStats({
-        totalMedia: mediaItems.length,
-        totalVideos: mediaItems.filter((item: any) => item.fileType === "video").length,
-        totalPhotos: mediaItems.filter((item: any) => item.fileType === "photo").length,
-        totalViews: mediaItems.reduce((acc: number, item: any) => acc + (item.views || 0), 0),
-      })
+    const fetchStats = async () => {
+      try {
+        const response = await fetch("/api/debug")
+        if (response.ok) {
+          const data = await response.json()
+          setMediaStats({
+            totalMedia: data.metadata.count,
+            totalVideos: data.metadata.videos,
+            totalPhotos: data.metadata.photos,
+            totalViews: data.metadata.views,
+          })
+        } else {
+          console.error("Failed to fetch stats:", await response.text())
+        }
+      } catch (error) {
+        console.error("Error fetching stats:", error)
+      }
     }
+
+    fetchStats()
   }, [])
 
   return (
