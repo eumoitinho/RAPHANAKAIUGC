@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
+import { upload } from "@vercel/blob/client"
 
 // Add function to save media metadata
 const saveMediaToLocalStorage = (mediaData: any) => {
@@ -97,53 +98,37 @@ export function MediaUploader() {
     setUploadProgress(10)
 
     try {
-      // Upload thumbnail to Vercel Blob
+      // Upload thumbnail using client-side upload
       setUploadProgress(20)
-      const thumbnailFormData = new FormData()
-      thumbnailFormData.append("file", thumbnailFile)
-      thumbnailFormData.append("filename", `thumbnail-${Date.now()}-${thumbnailFile.name}`)
-
+      const thumbnailFilename = `thumbnail-${Date.now()}-${thumbnailFile.name}`
       console.log("Uploading thumbnail...")
-      const thumbnailResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: thumbnailFormData,
+
+      const thumbnailBlob = await upload(thumbnailFilename, thumbnailFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload-handler",
       })
 
-      if (!thumbnailResponse.ok) {
-        const errorText = await thumbnailResponse.text()
-        throw new Error(`Thumbnail upload failed (${thumbnailResponse.status}): ${errorText}`)
-      }
-
-      const thumbnailData = await thumbnailResponse.json()
-      console.log("Thumbnail uploaded:", thumbnailData)
+      console.log("Thumbnail uploaded:", thumbnailBlob)
       setUploadProgress(50)
 
-      // Upload media file to Vercel Blob
-      const mediaFormData = new FormData()
-      mediaFormData.append("file", mediaFile)
-      mediaFormData.append("filename", `${mediaType}-${Date.now()}-${mediaFile.name}`)
-
+      // Upload media file using client-side upload
+      const mediaFilename = `${mediaType}-${Date.now()}-${mediaFile.name}`
       console.log("Uploading media file...")
-      const mediaResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: mediaFormData,
+
+      const mediaBlob = await upload(mediaFilename, mediaFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload-handler",
       })
 
-      if (!mediaResponse.ok) {
-        const errorText = await mediaResponse.text()
-        throw new Error(`Media upload failed (${mediaResponse.status}): ${errorText}`)
-      }
-
-      const mediaData = await mediaResponse.json()
-      console.log("Media uploaded:", mediaData)
+      console.log("Media uploaded:", mediaBlob)
       setUploadProgress(80)
 
       // Save media metadata to localStorage
       const newMedia = saveMediaToLocalStorage({
         title,
         description,
-        fileUrl: mediaData.url,
-        thumbnailUrl: thumbnailData.url,
+        fileUrl: mediaBlob.url,
+        thumbnailUrl: thumbnailBlob.url,
         fileType: mediaType,
         categories: selectedCategories,
       })
