@@ -6,13 +6,7 @@ export async function GET(): Promise<NextResponse> {
   try {
     const metadata = await getAllMediaMetadata()
     console.log(`API: GET /api/media - Retrieved ${metadata.length} items`)
-
-    if (metadata.length > 0) {
-      console.log("API: Media items sample:", metadata.slice(0, 2)) // Log first two items for debugging
-    } else {
-      console.log("API: No media items found")
-    }
-
+    console.log("API: Media items sample:", metadata.slice(0, 2)) // Log first two items for debugging
     return NextResponse.json({ media: metadata })
   } catch (error) {
     console.error("API: Error fetching media metadata:", error)
@@ -32,15 +26,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
     }
 
-    console.log(`API: POST /api/media - Incrementing views for item ${id}`)
     const success = await incrementViews(id)
 
     if (!success) {
-      console.log(`API: POST /api/media - Item ${id} not found`)
       return NextResponse.json({ error: "Media not found" }, { status: 404 })
     }
 
-    console.log(`API: POST /api/media - Successfully incremented views for item ${id}`)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error updating view count:", error)

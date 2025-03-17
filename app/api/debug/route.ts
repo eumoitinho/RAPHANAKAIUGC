@@ -1,8 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
 import { addMediaItem } from "@/lib/metadata-storage"
-import { list } from "@vercel/blob"
-import { getMetadataStats } from "@/lib/metadata-storage"
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody
@@ -66,36 +64,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     console.error("Upload handler: Error handling upload:", error)
     return NextResponse.json({ error: (error as Error).message }, { status: 400 })
-  }
-}
-
-export async function GET(): Promise<NextResponse> {
-  try {
-    // Get metadata stats
-    const metadataStats = await getMetadataStats()
-
-    // Get blob stats
-    const blobList = await list()
-
-    // Return combined stats
-    return NextResponse.json({
-      metadata: {
-        count: metadataStats.totalItems,
-        videos: metadataStats.videoCount,
-        photos: metadataStats.photoCount,
-        views: metadataStats.totalViews,
-      },
-      blobs: {
-        count: blobList.blobs.length,
-        totalSize: blobList.blobs.reduce((sum, blob) => sum + blob.size, 0),
-      },
-    })
-  } catch (error) {
-    console.error("Debug API error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error occurred" },
-      { status: 500 },
-    )
   }
 }
 

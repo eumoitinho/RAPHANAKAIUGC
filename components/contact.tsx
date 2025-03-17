@@ -52,7 +52,7 @@ export function Contact() {
                   <Mail className="mr-4 mt-1 text-[#d87093]" size={20} />
                   <div>
                     <p className="text-gray-400">Email</p>
-                    <a href="mailto:rncbs2002@gmail.com" className="hover:text-[#d87093] transition-colors">
+                    <a href="mailto:rncbs2002@gmail.com" className="hover:text-[#d87093] text-[#fff5dc] transition-colors">
                       rncbs2002@gmail.com
                     </a>
                   </div>
@@ -62,7 +62,7 @@ export function Contact() {
                   <Phone className="mr-4 mt-1 text-[#d87093]" size={20} />
                   <div>
                     <p className="text-gray-400">Telefone</p>
-                    <a href="tel:+5511999999999" className="hover:text-[#d87093] transition-colors">
+                    <a href="tel:+5511999999999" className="hover:text-[#d87093] text-[#fff5dc] transition-colors">
                       +55 (18) 98105-0201
                     </a>
                   </div>
@@ -72,14 +72,14 @@ export function Contact() {
                   <MapPin className="mr-4 mt-1 text-[#d87093]" size={20} />
                   <div>
                     <p className="text-gray-400">Localização</p>
-                    <p>Ilhabela, SP - Brasil</p>
+                    <p className="text-[#fff5dc]">Ilhabela, SP - Brasil</p>
                   </div>
                 </li>
               </ul>
             </div>
 
             <div className="mt-12">
-              <h3 className="text-xl font-medium mb-6 text-white">Redes Sociais</h3>
+              <h3 className="text-xl font-medium mb-6 text-[#fff5dc]">Redes Sociais</h3>
 
               <div className="flex space-x-4">
                 <a

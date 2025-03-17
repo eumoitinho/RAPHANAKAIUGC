@@ -1,10 +1,25 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Sparkles } from "lucide-react"
+import { Check, MessageCircleHeartIcon, Sparkles } from "lucide-react"
+import { Button } from "./ui/button"
 
 export function Pricing() {
   const [annualBilling, setAnnualBilling] = useState(false)
+  const [plan, setPlan] = useState<string>('');
+
+  const handlePlanClick = (selectedPlan: { name: string; description: string }) => {
+    const { name, description } = selectedPlan;
+
+    const mensagem = `Oii Rapha, gostaria de saber mais sobre o plano *${name}* - ${description}.`;
+
+    // Codifica a mensagem para ser usada na URL
+    const mensagemCodificada = encodeURIComponent(mensagem);
+
+    // Abre o WhatsApp com a mensagem pré-preenchida
+    window.open(`https://api.whatsapp.com/send?phone=5518981050201&text=${mensagemCodificada}`);
+  };
+
 
   const plans = [
     {
@@ -51,6 +66,7 @@ export function Pricing() {
     },
   ]
 
+
   return (
     <section id="planos" className="py-24 bg-[#121212] relative overflow-hidden">
       {/* Decorative Elements */}
@@ -67,7 +83,7 @@ export function Pricing() {
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="flex items-center justify-center mb-4">
             <span className="text-3xl text-[#d87093]/70 mr-2">✧</span>
-            <h2 className="text-4xl md:text-5xl font-bold">TABELA DE VALORES</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-[#fff5dc]">TABELA DE VALORES</h2>
             <span className="text-3xl text-[#d87093]/70 ml-2">✦</span>
           </div>
           <h3 className="text-2xl md:text-3xl font-bold text-right text-white/90">2025</h3>
@@ -82,11 +98,10 @@ export function Pricing() {
           {plans.map((plan, index) => (
             <div
               key={index}
-              className={`relative rounded-xl overflow-hidden ${
-                plan.popular
+              className={`relative rounded-xl overflow-hidden ${plan.popular
                   ? "bg-gradient-to-b from-[#d87093]/90 to-[#d87093]/70 shadow-lg shadow-[#d87093]/20"
                   : "bg-[#1e1e1e]"
-              }`}
+                }`}
             >
               {plan.popular && (
                 <div className="absolute top-0 right-0 bg-white text-[#d87093] font-medium text-sm px-4 py-1 rounded-bl-lg">
@@ -105,6 +120,17 @@ export function Pricing() {
                   <span className="text-4xl font-bold">{plan.price}</span>
                   <span className={`${plan.popular ? "text-white/80" : "text-gray-400"}`}> / projeto</span>
                 </div>
+
+                <Button
+                  onClick={() => handlePlanClick(plan)} // Agora passa o plano inteiro
+                  className={`w-full ${plan.popular
+                      ? "bg-white text-[#d87093] hover:bg-gray-100"
+                      : "bg-[#d87093] text-white hover:bg-[#c45c7c]"
+                    }`}
+                >
+                  <MessageCircleHeartIcon />
+                  Selecionar Plano
+                </Button>
 
                 <div className="mt-8">
                   <p className={`font-medium mb-4 ${plan.popular ? "text-white" : "text-white/90"}`}>Entregáveis</p>
@@ -127,9 +153,6 @@ export function Pricing() {
 
         {/* Additional Info */}
         <div className="mt-16 text-center">
-          <p className="text-gray-400">
-            Todos os pacotes incluem entrega em até 7 dias úteis após aprovação do briefing.
-          </p>
           <p className="mt-2 text-gray-400">
             Precisa de um pacote personalizado?{" "}
             <a href="#contato" className="text-[#d87093] hover:underline">

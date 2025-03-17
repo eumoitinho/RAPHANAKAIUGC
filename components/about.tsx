@@ -58,7 +58,7 @@ export function About() {
           {/* Content */}
           <div className="order-1 md:order-2">
             <h2 className="text-sm uppercase tracking-wider text-[#d87093] font-medium mb-2">Sobre Mim</h2>
-            <h3 className="text-3xl md:text-4xl font-bold mb-6">
+            <h3 className="text-3xl md:text-4xl text-[#fff5dc] font-bold mb-6">
               CONHEÇA A MENTE CRIATIVA
               <br />
               POR TRÁS DAS CÂMERAS

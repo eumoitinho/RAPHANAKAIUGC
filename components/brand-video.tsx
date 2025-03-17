@@ -35,14 +35,14 @@ export function BrandVideo() {
           <div className="space-y-6">
             <div>
               <h2 className="text-sm uppercase tracking-wider text-[#d87093] font-medium mb-2">Criação de Conteúdo</h2>
-              <h3 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+              <h3 className="text-4xl text-[#fff5dc] md:text-5xl font-bold mb-4 leading-tight">
                 CONTEÚDO AUTÊNTICO
                 <br />
                 CRIADO PARA MARCAS
                 <br />
                 QUE VALORIZAM
               </h3>
-              <p className="text-2xl md:text-3xl font-serif italic text-[#d87093]">conexões reais.</p>
+              <p className="text-2xl md:text-4xl font-serif italic text-[#d87093]">conexões reais.</p>
             </div>
 
             <p className="text-gray-300 max-w-lg">

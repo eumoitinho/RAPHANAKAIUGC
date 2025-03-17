@@ -194,130 +194,102 @@ export function MediaUploader() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!mediaFile || !thumbnailFile || !title || selectedCategories.length === 0) {
+    e.preventDefault();
+  
+    if (!mediaFile || !title || selectedCategories.length === 0) {
       toast({
         title: "Erro de validação",
         description: "Por favor, preencha todos os campos obrigatórios",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    setIsUploading(true)
-    setUploadProgress(10)
-
+  
+    setIsUploading(true);
+    setUploadProgress(10);
+  
     try {
-      // Compress video if it's a video file
-      let fileToUpload = mediaFile
+      let fileToUpload = mediaFile;
+  
+      // Se for vídeo, comprimir antes do upload
       if (mediaType === "video" && ffmpegLoaded) {
-        setUploadProgress(5)
+        setUploadProgress(5);
         toast({
           title: "Comprimindo vídeo",
           description: "Aguarde enquanto o vídeo é comprimido...",
-        })
-        fileToUpload = await compressVideo(mediaFile)
-        setUploadProgress(15)
+        });
+        fileToUpload = await compressVideo(mediaFile);
+        setUploadProgress(15);
       }
-
-      // Generate a unique ID for this media item
-      const mediaId = uuidv4()
-      const timestamp = Date.now()
-
-      // First upload the thumbnail
-      setUploadProgress(20)
-      const thumbnailFilename = `thumbnail-${timestamp}-${mediaId}-${thumbnailFile.name}`
-      console.log("Uploading thumbnail...")
-
-      const thumbnailBlob = await upload(thumbnailFilename, thumbnailFile, {
-        access: "public",
-        handleUploadUrl: "/api/upload-handler",
-        clientPayload: JSON.stringify({
-          mediaId,
-          isThumb: true,
-        }),
-        onUploadProgress: ({ percentage }) => {
-          // Scale progress from 20-50%
-          setUploadProgress(20 + Math.round(percentage * 0.3))
-        },
-      })
-
-      console.log("Thumbnail uploaded:", thumbnailBlob)
-      setUploadProgress(50)
-
-      // Then upload the media file with metadata including the thumbnail URL
-      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`
-      console.log("Uploading media file...")
-
-      // Prepare metadata
-      const metadata = {
-        title,
-        description,
-        fileType: mediaType,
-        categories: selectedCategories,
-      }
-
+  
+      // Gerar ID único
+      const mediaId = uuidv4();
+      const timestamp = Date.now();
+      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`;
+  
+      console.log("Uploading media file...");
       const mediaBlob = await upload(mediaFilename, fileToUpload, {
         access: "public",
         handleUploadUrl: "/api/upload-handler",
-        clientPayload: JSON.stringify({
-          mediaId,
-          thumbnailUrl: thumbnailBlob.url,
-          metadata,
-        }),
+        clientPayload: JSON.stringify({ mediaId }),
         onUploadProgress: ({ percentage }) => {
-          // Scale progress from 50-90%
-          setUploadProgress(50 + Math.round(percentage * 0.4))
+          setUploadProgress(20 + Math.round(percentage * 0.7)); // Ajuste de progresso
         },
-      })
-
-      console.log("Media uploaded:", mediaBlob)
-      setUploadProgress(90)
-
-      // Now add the media item to our metadata storage
-      try {
-        console.log("Adding media item to metadata storage...")
-        const response = await fetch("/api/media/add", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      });
+  
+      console.log("Media uploaded:", mediaBlob);
+      setUploadProgress(90);
+  
+      // Definir thumbnailUrl corretamente
+      let thumbnailUrl = mediaBlob.url; // Por padrão, usa o próprio arquivo para fotos
+  
+      if (mediaType === "video" && thumbnailFile) {
+        const thumbnailFilename = `thumbnail-${timestamp}-${mediaId}-${thumbnailFile.name}`;
+        console.log("Uploading thumbnail...");
+  
+        const thumbnailBlob = await upload(thumbnailFilename, thumbnailFile, {
+          access: "public",
+          handleUploadUrl: "/api/upload-handler",
+          clientPayload: JSON.stringify({ mediaId, isThumb: true }),
+          onUploadProgress: ({ percentage }) => {
+            setUploadProgress(50 + Math.round(percentage * 0.4)); // Ajuste para vídeos
           },
-          body: JSON.stringify({
-            title,
-            description,
-            fileUrl: mediaBlob.url,
-            thumbnailUrl: thumbnailBlob.url,
-            fileType: mediaType,
-            categories: selectedCategories,
-            fileName: mediaFilename,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Failed to save metadata (${response.status}): ${errorText}`)
-        }
-
-        const result = await response.json()
-        console.log("Metadata saved successfully:", result.item)
-
-        // Show success message with the ID
-        toast({
-          title: "Upload completo",
-          description: `Arquivo enviado com sucesso! ID: ${result.item.id}`,
-        })
-      } catch (error) {
-        console.error("Error saving metadata:", error)
-        toast({
-          title: "Aviso",
-          description: `Arquivo enviado, mas houve um erro ao salvar os metadados: ${error instanceof Error ? error.message : String(error)}`,
-          variant: "destructive",
-        })
+        });
+  
+        console.log("Thumbnail uploaded:", thumbnailBlob);
+        thumbnailUrl = thumbnailBlob.url; // Apenas para vídeos
       }
-
-      setUploadProgress(100)
-
+  
+      // Adicionar mídia ao armazenamento de metadados
+      console.log("Adding media item to metadata storage...");
+      const response = await fetch("/api/media/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          fileUrl: mediaBlob.url,
+          thumbnailUrl, // Agora para fotos será o mesmo do arquivo
+          fileType: mediaType,
+          categories: selectedCategories,
+          fileName: mediaFilename,
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to save metadata (${response.status}): ${errorText}`);
+      }
+  
+      const result = await response.json();
+      console.log("Metadata saved successfully:", result.item);
+  
+      toast({
+        title: "Upload completo",
+        description: `Arquivo enviado com sucesso! ID: ${result.item.id}`,
+      });
+  
+      setUploadProgress(100);
       setTimeout(() => {
         setIsUploading(false)
         setUploadSuccess(true)
@@ -325,33 +297,31 @@ export function MediaUploader() {
           title: "Upload concluído",
           description: "Seu arquivo foi enviado com sucesso!",
         })
-
-        // Reset form after success
-        setTimeout(() => {
-          setTitle("")
-          setDescription("")
-          setSelectedCategories([])
-          setMediaFile(null)
-          setThumbnailFile(null)
-          setMediaPreview(null)
-          setThumbnailPreview(null)
-          setUploadSuccess(false)
-          setUploadProgress(0)
-          setCompressedFile(null)
-        }, 2000)
-      }, 1000)
+       // Reset form after success
+       setTimeout(() => {
+        setTitle("")
+        setDescription("")
+        setSelectedCategories([])
+        setMediaFile(null)
+        setThumbnailFile(null)
+        setMediaPreview(null)
+        setThumbnailPreview(null)
+        setUploadSuccess(false)
+        setUploadProgress(0)
+        setCompressedFile(null)
+      }, 2000)
+    }, 1000)
     } catch (error) {
-      console.error("Upload error:", error)
-      setIsUploading(false)
-      setUploadProgress(0)
+      console.error("Upload error:", error);
+      setIsUploading(false);
       toast({
         title: "Erro no upload",
         description: `Ocorreu um erro durante o upload: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
-      })
+      });
     }
-  }
-
+  };
+  
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <h2 className="text-xl font-bold mb-6">Upload de Mídia</h2>
@@ -538,6 +508,7 @@ export function MediaUploader() {
             </div>
 
             {/* Thumbnail Upload */}
+            {mediaType === "video" && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Thumbnail <span className="text-[#d87093]">*</span>
@@ -584,8 +555,10 @@ export function MediaUploader() {
                 />
               </div>
             </div>
+                          )}
           </div>
         </div>
+
 
         {/* Upload Progress */}
         {isUploading && (
@@ -642,3 +615,6 @@ export function MediaUploader() {
   )
 }
 
+function resetForm() {
+  throw new Error("Function not implemented.")
+}
