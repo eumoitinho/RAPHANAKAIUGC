@@ -33,8 +33,16 @@ export function Portfolio() {
       const data = await response.json()
       console.log("Media data received:", data)
 
-      if (!data.media || data.media.length === 0) {
-        console.warn("No media returned from API or empty array")
+      if (!data.media) {
+        console.warn("No media property in API response:", data)
+        setMediaItems([])
+        setFilteredItems([])
+        setIsLoading(false)
+        return
+      }
+
+      if (data.media.length === 0) {
+        console.log("API returned empty media array - no items have been uploaded yet")
         setMediaItems([])
         setFilteredItems([])
         setIsLoading(false)
@@ -238,6 +246,30 @@ export function Portfolio() {
           >
             Debug
           </Button>
+          <Button
+            variant="outline"
+            className="ml-2 bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
+            onClick={async () => {
+              try {
+                const response = await fetch("/api/media")
+                const data = await response.json()
+                console.log("Raw API response:", data)
+                toast({
+                  title: "API Response",
+                  description: `Status: ${response.status}, Has media property: ${!!data.media}, Items: ${data.media ? data.media.length : "none"}`,
+                })
+              } catch (error) {
+                console.error("Error testing API:", error)
+                toast({
+                  title: "API Error",
+                  description: String(error),
+                  variant: "destructive",
+                })
+              }
+            }}
+          >
+            Test API
+          </Button>
         </div>
 
         {/* Loading State */}
@@ -391,3 +423,4 @@ export function Portfolio() {
   )
 }
 
+export default Portfolio
