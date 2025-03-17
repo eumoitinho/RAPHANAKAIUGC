@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob"
+import { createSignedUploadUrl } from "@vercel/blob"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -22,14 +23,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log(`Uploading file: ${filename}, size: ${file.size} bytes`)
     const blob = await put(filename, file, {
       access: "public",
-      addRandomSuffix: true,
+      addRandomSuffix: true, // Ensures unique filenames
+
     })
 
     console.log("Upload successful:", blob)
     return NextResponse.json({
       url: blob.url,
-      size: blob.size,
-      uploadedAt: blob.uploadedAt,
+      // size: blob.size, // Removed as it does not exist on PutBlobResult
+      // uploadedAt: blob.uploadedAt, // Removed as it does not exist on PutBlobResult
     })
   } catch (error) {
     console.error("Upload error:", error)
@@ -40,3 +42,20 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 }
 
+export async function GET(): Promise<NextResponse> {
+  try {
+    // Generate a signed upload URL
+    const signedUrl = await createSignedUploadUrl({
+      access: "public", // Make the file publicly accessible
+      expiresIn: "15m", // URL expires in 15 minutes
+    })
+
+    return NextResponse.json({ url: signedUrl.url })
+  } catch (error) {
+    console.error("Error generating signed upload URL:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error occurred" },
+      { status: 500 },
+    )
+  }
+}
