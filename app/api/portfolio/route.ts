@@ -66,7 +66,7 @@ export async function GET(): Promise<NextResponse> {
     console.log(`API: Found ${blobs.length} blobs`)
 
     // Tentar buscar metadados (mas não falhar se não conseguir)
-    let metadata = []
+    let metadata: any[] = []
     try {
       console.log("API: Fetching metadata")
       metadata = await getAllMediaMetadata()
