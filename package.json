@@ -63,8 +63,7 @@
     "firebase": "latest",
     "path": "latest",
     "uuid": "latest",
-    "@tailwindcss/typography": "latest",
-    "@ffmpeg/ffmpeg": "latest"
+    "@tailwindcss/typography": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

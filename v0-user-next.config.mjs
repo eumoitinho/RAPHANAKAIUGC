@@ -1,0 +1,21 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ['firebasestorage.googleapis.com'],
+  },
+  webpack: (config) => {
+    // This is to handle the Firebase packages properly
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    
+    return config;
+  },
+};
+
+export default nextConfig;
+

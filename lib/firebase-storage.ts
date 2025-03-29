@@ -1,14 +1,22 @@
+"use client"
+
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage"
-import { storage } from "./firebase"
+import { clientStorage } from "./firebase"
 import { v4 as uuidv4 } from "uuid"
 
 // Upload a file to Firebase Storage
 export async function uploadFile(file: File, path = ""): Promise<{ url: string; path: string }> {
   try {
+    // Check if storage bucket is configured
+    const bucket = clientStorage.app.options.storageBucket
+    if (!bucket) {
+      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    }
+
     // Generate a unique filename
     const fileExtension = file.name.split(".").pop()
     const fileName = `${path}/${uuidv4()}.${fileExtension}`
-    const storageRef = ref(storage, fileName)
+    const storageRef = ref(clientStorage, fileName)
 
     // Upload the file
     const snapshot = await uploadBytes(storageRef, file)
@@ -26,7 +34,13 @@ export async function uploadFile(file: File, path = ""): Promise<{ url: string; 
 // List all files in a directory
 export async function listFiles(directory = ""): Promise<{ name: string; url: string; fullPath: string }[]> {
   try {
-    const listRef = ref(storage, directory)
+    // Check if storage bucket is configured
+    const bucket = clientStorage.app.options.storageBucket
+    if (!bucket) {
+      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    }
+
+    const listRef = ref(clientStorage, directory)
     const res = await listAll(listRef)
 
     const files = await Promise.all(
@@ -50,7 +64,13 @@ export async function listFiles(directory = ""): Promise<{ name: string; url: st
 // Delete a file from Firebase Storage
 export async function deleteFile(filePath: string): Promise<boolean> {
   try {
-    const fileRef = ref(storage, filePath)
+    // Check if storage bucket is configured
+    const bucket = clientStorage.app.options.storageBucket
+    if (!bucket) {
+      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    }
+
+    const fileRef = ref(clientStorage, filePath)
     await deleteObject(fileRef)
     return true
   } catch (error) {
@@ -62,7 +82,13 @@ export async function deleteFile(filePath: string): Promise<boolean> {
 // Get a file's download URL
 export async function getFileUrl(filePath: string): Promise<string> {
   try {
-    const fileRef = ref(storage, filePath)
+    // Check if storage bucket is configured
+    const bucket = clientStorage.app.options.storageBucket
+    if (!bucket) {
+      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    }
+
+    const fileRef = ref(clientStorage, filePath)
     return await getDownloadURL(fileRef)
   } catch (error) {
     console.error("Error getting file URL:", error)

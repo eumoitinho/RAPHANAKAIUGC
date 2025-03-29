@@ -1,7 +1,7 @@
 "use server"
 
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment } from "firebase/firestore"
-import { firestore } from "./firebase"
+import { clientDb } from "./firebase"
 
 // Define types for our metadata
 export type MediaMetadata = {
@@ -24,7 +24,7 @@ export async function getAllMediaMetadata(): Promise<MediaMetadata[]> {
   console.log("getAllMediaMetadata: Attempting to fetch metadata from Firestore")
 
   try {
-    const mediaCollection = collection(firestore, MEDIA_COLLECTION)
+    const mediaCollection = collection(clientDb, MEDIA_COLLECTION)
     const snapshot = await getDocs(mediaCollection)
 
     const mediaItems = snapshot.docs.map((doc) => {
@@ -46,7 +46,7 @@ export async function getAllMediaMetadata(): Promise<MediaMetadata[]> {
 // Function to add a new media item
 export async function addMediaItem(item: Omit<MediaMetadata, "id" | "views" | "dateCreated">): Promise<MediaMetadata> {
   try {
-    const mediaCollection = collection(firestore, MEDIA_COLLECTION)
+    const mediaCollection = collection(clientDb, MEDIA_COLLECTION)
 
     // Create new item with generated fields
     const newItem = {
@@ -70,7 +70,7 @@ export async function addMediaItem(item: Omit<MediaMetadata, "id" | "views" | "d
 // Function to update views count
 export async function incrementViews(id: string): Promise<boolean> {
   try {
-    const mediaDoc = doc(firestore, MEDIA_COLLECTION, id)
+    const mediaDoc = doc(clientDb, MEDIA_COLLECTION, id)
     await updateDoc(mediaDoc, {
       views: increment(1),
     })
@@ -84,7 +84,7 @@ export async function incrementViews(id: string): Promise<boolean> {
 // Function to delete a media item
 export async function deleteMediaItem(id: string): Promise<boolean> {
   try {
-    const mediaDoc = doc(firestore, MEDIA_COLLECTION, id)
+    const mediaDoc = doc(clientDb, MEDIA_COLLECTION, id)
     await deleteDoc(mediaDoc)
     return true
   } catch (error) {

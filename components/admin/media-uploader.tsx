@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import { Upload, X, Plus, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
 import { uploadFile } from "@/lib/firebase-storage"
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg"
+import { clientStorage } from "@/lib/firebase"
 
 export function MediaUploader() {
   const [mediaType, setMediaType] = useState<"video" | "photo">("video")
@@ -24,138 +24,12 @@ export function MediaUploader() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSuccess, setUploadSuccess] = useState(false)
-  const [isCompressing, setIsCompressing] = useState(false)
-  const [compressionProgress, setCompressionProgress] = useState(0)
-  const [compressedFile, setCompressedFile] = useState<File | null>(null)
   const [compressionQuality, setCompressionQuality] = useState<"high" | "medium" | "low">("medium")
-  const [ffmpegLoaded, setFfmpegLoaded] = useState(false)
-  const ffmpeg = useRef(
-    createFFmpeg({
-      log: true,
-      progress: ({ ratio }) => {
-        setCompressionProgress(Math.round(ratio * 100))
-      },
-    }),
-  )
 
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   const categories = ["Wellness", "ADS", "Experiência", "Beauty", "Pet", "Decor", "Receitas", "Moda"]
-
-  useEffect(() => {
-    const loadFFmpeg = async () => {
-      try {
-        if (!ffmpeg.current.isLoaded()) {
-          await ffmpeg.current.load()
-          setFfmpegLoaded(true)
-          console.log("FFmpeg loaded successfully")
-        }
-      } catch (error) {
-        console.error("Error loading FFmpeg:", error)
-        toast({
-          title: "Aviso",
-          description: "Não foi possível carregar o compressor de vídeo. O upload será feito sem compressão.",
-          variant: "default",
-        })
-      }
-    }
-
-    loadFFmpeg()
-
-    return () => {
-      // Cleanup function
-      if (ffmpeg.current.isLoaded()) {
-        ffmpeg.current.exit()
-      }
-    }
-  }, [])
-
-  const compressVideo = async (file: File): Promise<File> => {
-    if (!ffmpeg.current.isLoaded() || mediaType !== "video") {
-      return file // Return original file if FFmpeg is not loaded or if it's not a video
-    }
-
-    setIsCompressing(true)
-    setCompressionProgress(0)
-
-    try {
-      const inputName = "input.mp4"
-      const outputName = "output.mp4"
-
-      // Write the file to memory
-      ffmpeg.current.FS("writeFile", inputName, await fetchFile(file))
-
-      // Set compression parameters based on quality setting
-      let crf = "23" // Default medium quality (lower is better quality, higher is smaller file)
-      let preset = "medium" // Encoding speed (slower = better compression)
-
-      switch (compressionQuality) {
-        case "high":
-          crf = "18" // Higher quality
-          preset = "slow" // Slower encoding for better quality
-          break
-        case "medium":
-          crf = "23" // Medium quality
-          preset = "medium"
-          break
-        case "low":
-          crf = "28" // Lower quality
-          preset = "fast" // Faster encoding
-          break
-      }
-
-      // Run the FFmpeg command
-      await ffmpeg.current.run(
-        "-i",
-        inputName,
-        "-c:v",
-        "libx264", // Video codec
-        "-crf",
-        crf, // Constant Rate Factor (quality)
-        "-preset",
-        preset, // Encoding speed
-        "-c:a",
-        "aac", // Audio codec
-        "-b:a",
-        "128k", // Audio bitrate
-        "-movflags",
-        "+faststart", // Optimize for web streaming
-        outputName,
-      )
-
-      // Read the result
-      const data = ffmpeg.current.FS("readFile", outputName)
-
-      // Create a new file from the result
-      const compressedBlob = new Blob([data.buffer], { type: "video/mp4" })
-      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + "_compressed.mp4", {
-        type: "video/mp4",
-        lastModified: Date.now(),
-      })
-
-      console.log(`Original size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`)
-      console.log(`Compressed size: ${(compressedFile.size / (1024 * 1024)).toFixed(2)} MB`)
-      console.log(`Compression ratio: ${((compressedFile.size / file.size) * 100).toFixed(2)}%`)
-
-      // Clean up
-      ffmpeg.current.FS("unlink", inputName)
-      ffmpeg.current.FS("unlink", outputName)
-
-      setCompressedFile(compressedFile)
-      return compressedFile
-    } catch (error) {
-      console.error("Error during video compression:", error)
-      toast({
-        title: "Erro na compressão",
-        description: "Ocorreu um erro ao comprimir o vídeo. O arquivo original será usado.",
-        variant: "destructive",
-      })
-      return file // Return original file if compression fails
-    } finally {
-      setIsCompressing(false)
-    }
-  }
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -205,35 +79,47 @@ export function MediaUploader() {
       return
     }
 
+    // Check if Firebase Storage is properly configured
+    try {
+      const bucket = clientStorage.app.options.storageBucket
+      if (!bucket) {
+        toast({
+          title: "Erro de configuração",
+          description:
+            "O Firebase Storage não está configurado corretamente. Verifique a variável de ambiente NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.",
+          variant: "destructive",
+        })
+        return
+      }
+    } catch (error) {
+      console.error("Firebase Storage configuration error:", error)
+      toast({
+        title: "Erro de configuração",
+        description: "Ocorreu um erro ao verificar a configuração do Firebase Storage.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsUploading(true)
     setUploadProgress(10)
 
     try {
-      let fileToUpload = mediaFile
-
-      // Se for vídeo, comprimir antes do upload
-      if (mediaType === "video" && ffmpegLoaded) {
-        setUploadProgress(5)
-        toast({
-          title: "Comprimindo vídeo",
-          description: "Aguarde enquanto o vídeo é comprimido...",
-        })
-        fileToUpload = await compressVideo(mediaFile)
-        setUploadProgress(15)
-      }
-
       // Gerar ID único
       const mediaId = uuidv4()
       const timestamp = Date.now()
-      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`
+      const fileExtension = mediaFile.name.split(".").pop() || ""
+      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}.${fileExtension}`
 
       // Upload to Firebase Storage
       console.log("Uploading media file...")
       const folderPath = mediaType === "video" ? "videos" : "photos"
-      const mediaResult = await uploadFile(fileToUpload, folderPath)
+      setUploadProgress(20)
+
+      const mediaResult = await uploadFile(mediaFile, folderPath)
 
       console.log("Media uploaded:", mediaResult)
-      setUploadProgress(90)
+      setUploadProgress(70)
 
       // Definir thumbnailUrl corretamente
       let thumbnailUrl = mediaResult.url // Por padrão, usa o próprio arquivo para fotos
@@ -245,6 +131,7 @@ export function MediaUploader() {
         thumbnailUrl = thumbnailResult.url
         thumbnailPath = thumbnailResult.path
         console.log("Thumbnail uploaded:", thumbnailResult)
+        setUploadProgress(90)
       }
 
       // Adicionar mídia ao armazenamento de metadados
@@ -295,7 +182,6 @@ export function MediaUploader() {
           setThumbnailPreview(null)
           setUploadSuccess(false)
           setUploadProgress(0)
-          setCompressedFile(null)
         }, 2000)
       }, 1000)
     } catch (error) {
@@ -344,7 +230,7 @@ export function MediaUploader() {
             {/* Add this right after the Media Type Selection div */}
             {mediaType === "video" && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Qualidade da Compressão</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Qualidade do Vídeo</label>
                 <div className="flex space-x-4">
                   <button
                     type="button"
@@ -386,6 +272,10 @@ export function MediaUploader() {
                     : compressionQuality === "medium"
                       ? "Equilíbrio entre qualidade e tamanho"
                       : "Arquivo menor, qualidade reduzida"}
+                </p>
+                <p className="mt-2 text-xs text-gray-400">
+                  Nota: A compressão de vídeo no navegador foi desativada devido a limitações técnicas. Os vídeos serão
+                  enviados em sua qualidade original.
                 </p>
               </div>
             )}
@@ -557,22 +447,6 @@ export function MediaUploader() {
               <div
                 className="bg-[#d87093] h-2 rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-
-        {/* Compression Progress */}
-        {isCompressing && (
-          <div className="mt-6">
-            <div className="flex justify-between text-sm mb-1">
-              <span>Comprimindo vídeo...</span>
-              <span>{compressionProgress}%</span>
-            </div>
-            <div className="w-full bg-[#252525] rounded-full h-2">
-              <div
-                className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${compressionProgress}%` }}
               ></div>
             </div>
           </div>

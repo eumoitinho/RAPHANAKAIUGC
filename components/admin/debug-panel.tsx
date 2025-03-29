@@ -3,16 +3,11 @@
 import { useState } from "react"
 import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FirebaseStatus } from "./firebase-status"
+import { FirebaseStorageCheck } from "./firebase-storage-check"
 
 export function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false)
-  const [blobToken, setBlobToken] = useState<string | null>(null)
-
-  const checkBlobToken = () => {
-    // This will be undefined in the browser
-    const token = process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN || null
-    setBlobToken(token)
-  }
 
   if (!isOpen) {
     return (
@@ -37,30 +32,12 @@ export function DebugPanel() {
       </div>
 
       <div className="space-y-4">
-        <div>
-          <p className="text-sm text-gray-400 mb-2">Vercel Blob Configuration:</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
-            onClick={checkBlobToken}
-          >
-            Check Blob Token
-          </Button>
+        <FirebaseStatus />
 
-          {blobToken !== undefined && (
-            <p className="mt-2 text-sm">
-              {blobToken ? (
-                <span className="text-green-500">Blob token is available</span>
-              ) : (
-                <span className="text-red-500">Blob token is missing</span>
-              )}
-            </p>
-          )}
-        </div>
+        <FirebaseStorageCheck />
 
         <div>
-          <p className="text-sm text-gray-400 mb-2">Upload API Status:</p>
+          <p className="text-sm text-gray-400 mb-2">API Status:</p>
           <Button
             variant="outline"
             size="sm"
