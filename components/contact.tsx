@@ -52,7 +52,10 @@ export function Contact() {
                   <Mail className="mr-4 mt-1 text-[#d87093]" size={20} />
                   <div>
                     <p className="text-gray-400">Email</p>
-                    <a href="mailto:rncbs2002@gmail.com" className="hover:text-[#d87093] text-[#fff5dc] transition-colors">
+                    <a
+                      href="mailto:rncbs2002@gmail.com"
+                      className="hover:text-[#d87093] text-[#fff5dc] transition-colors"
+                    >
                       rncbs2002@gmail.com
                     </a>
                   </div>

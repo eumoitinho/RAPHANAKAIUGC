@@ -6,20 +6,19 @@ import { Button } from "./ui/button"
 
 export function Pricing() {
   const [annualBilling, setAnnualBilling] = useState(false)
-  const [plan, setPlan] = useState<string>('');
+  const [plan, setPlan] = useState<string>("")
 
   const handlePlanClick = (selectedPlan: { name: string; description: string }) => {
-    const { name, description } = selectedPlan;
+    const { name, description } = selectedPlan
 
-    const mensagem = `Oii Rapha, gostaria de saber mais sobre o plano *${name}* - ${description}.`;
+    const mensagem = `Oii Rapha, gostaria de saber mais sobre o plano *${name}* - ${description}.`
 
     // Codifica a mensagem para ser usada na URL
-    const mensagemCodificada = encodeURIComponent(mensagem);
+    const mensagemCodificada = encodeURIComponent(mensagem)
 
     // Abre o WhatsApp com a mensagem pré-preenchida
-    window.open(`https://api.whatsapp.com/send?phone=5518981050201&text=${mensagemCodificada}`);
-  };
-
+    window.open(`https://api.whatsapp.com/send?phone=5518981050201&text=${mensagemCodificada}`)
+  }
 
   const plans = [
     {
@@ -66,7 +65,6 @@ export function Pricing() {
     },
   ]
 
-
   return (
     <section id="planos" className="py-24 bg-[#121212] relative overflow-hidden">
       {/* Decorative Elements */}
@@ -98,10 +96,11 @@ export function Pricing() {
           {plans.map((plan, index) => (
             <div
               key={index}
-              className={`relative rounded-xl overflow-hidden ${plan.popular
+              className={`relative rounded-xl overflow-hidden ${
+                plan.popular
                   ? "bg-gradient-to-b from-[#d87093]/90 to-[#d87093]/70 shadow-lg shadow-[#d87093]/20"
                   : "bg-[#1e1e1e]"
-                }`}
+              }`}
             >
               {plan.popular && (
                 <div className="absolute top-0 right-0 bg-white text-[#d87093] font-medium text-sm px-4 py-1 rounded-bl-lg">
@@ -123,10 +122,11 @@ export function Pricing() {
 
                 <Button
                   onClick={() => handlePlanClick(plan)} // Agora passa o plano inteiro
-                  className={`w-full ${plan.popular
+                  className={`w-full ${
+                    plan.popular
                       ? "bg-white text-[#d87093] hover:bg-gray-100"
                       : "bg-[#d87093] text-white hover:bg-[#c45c7c]"
-                    }`}
+                  }`}
                 >
                   <MessageCircleHeartIcon />
                   Selecionar Plano

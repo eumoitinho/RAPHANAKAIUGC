@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { deleteMediaItem } from "@/lib/metadata-storage"
-import { del } from "@vercel/blob"
+import { deleteFile } from "@/lib/firebase-storage"
 
 export async function DELETE(request: Request): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
-    const fileUrl = searchParams.get("fileUrl")
-    const thumbnailUrl = searchParams.get("thumbnailUrl")
+    const filePath = searchParams.get("filePath")
+    const thumbnailPath = searchParams.get("thumbnailPath")
 
     if (!id) {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
@@ -23,23 +23,23 @@ export async function DELETE(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: "Media not found" }, { status: 404 })
     }
 
-    // Try to delete the actual files from Blob storage if URLs are provided
+    // Try to delete the actual files from Firebase Storage if paths are provided
     const deletePromises = []
 
-    if (fileUrl) {
-      console.log(`API: DELETE /api/media/delete - Deleting file ${fileUrl}`)
+    if (filePath) {
+      console.log(`API: DELETE /api/media/delete - Deleting file ${filePath}`)
       deletePromises.push(
-        del(fileUrl).catch((error) => {
-          console.error(`Failed to delete file ${fileUrl}:`, error)
+        deleteFile(filePath).catch((error) => {
+          console.error(`Failed to delete file ${filePath}:`, error)
         }),
       )
     }
 
-    if (thumbnailUrl) {
-      console.log(`API: DELETE /api/media/delete - Deleting thumbnail ${thumbnailUrl}`)
+    if (thumbnailPath) {
+      console.log(`API: DELETE /api/media/delete - Deleting thumbnail ${thumbnailPath}`)
       deletePromises.push(
-        del(thumbnailUrl).catch((error) => {
-          console.error(`Failed to delete thumbnail ${thumbnailUrl}:`, error)
+        deleteFile(thumbnailPath).catch((error) => {
+          console.error(`Failed to delete thumbnail ${thumbnailPath}:`, error)
         }),
       )
     }

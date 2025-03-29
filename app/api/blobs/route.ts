@@ -1,21 +1,27 @@
-import { list } from "@vercel/blob"
+import { listFiles } from "@/lib/firebase-storage"
 import { NextResponse } from "next/server"
 
 export async function GET(): Promise<NextResponse> {
   try {
-    // Check if BLOB_READ_WRITE_TOKEN is available
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error("Missing BLOB_READ_WRITE_TOKEN environment variable")
-      return NextResponse.json({ error: "Server configuration error: Missing Blob token" }, { status: 500 })
-    }
+    console.log("Listing files from Firebase Storage...")
 
-    console.log("Listing blobs...")
-    const blobs = await list()
-    console.log(`Found ${blobs.blobs.length} blobs`)
+    // Get all files from both videos and photos directories
+    const videoFiles = await listFiles("videos")
+    const photoFiles = await listFiles("photos")
 
-    return NextResponse.json(blobs)
+    // Combine and format the results to match the expected structure
+    const blobs = [...videoFiles, ...photoFiles].map((file) => ({
+      url: file.url,
+      pathname: file.fullPath,
+      size: 0, // Firebase doesn't provide size in listAll, would need additional API calls
+      uploadedAt: new Date().toISOString(), // Firebase doesn't provide upload date in listAll
+    }))
+
+    console.log(`Found ${blobs.length} files`)
+
+    return NextResponse.json({ blobs })
   } catch (error) {
-    console.error("Error listing blobs:", error)
+    console.error("Error listing files:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },

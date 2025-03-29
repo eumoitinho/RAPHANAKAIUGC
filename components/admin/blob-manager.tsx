@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
+import { deleteFile } from "@/lib/firebase-storage"
 
 type Blob = {
   url: string
@@ -26,19 +27,19 @@ export function BlobManager() {
   const fetchBlobs = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching blobs from API...")
+      console.log("Fetching files from Firebase Storage...")
       const response = await fetch("/api/blobs")
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`Failed to fetch blobs (${response.status}): ${errorText}`)
+        throw new Error(`Failed to fetch files (${response.status}): ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Blobs fetched:", data)
+      console.log("Files fetched:", data)
 
       if (!data.blobs) {
-        console.warn("No blobs returned from API:", data)
+        console.warn("No files returned from API:", data)
         setBlobs([])
         setFilteredBlobs([])
         return
@@ -47,7 +48,7 @@ export function BlobManager() {
       setBlobs(data.blobs)
       setFilteredBlobs(data.blobs)
     } catch (error) {
-      console.error("Error fetching blobs:", error)
+      console.error("Error fetching files:", error)
       toast({
         title: "Error",
         description: `Failed to fetch files: ${error instanceof Error ? error.message : String(error)}`,
@@ -77,11 +78,11 @@ export function BlobManager() {
     if (selectedType) {
       filtered = filtered.filter((blob) => {
         if (selectedType === "video") {
-          return blob.pathname.includes("video-")
+          return blob.pathname.includes("videos/")
         } else if (selectedType === "photo") {
-          return blob.pathname.includes("photo-")
+          return blob.pathname.includes("photos/")
         } else if (selectedType === "thumbnail") {
-          return blob.pathname.includes("thumbnail-")
+          return blob.pathname.includes("thumbnails/")
         }
         return true
       })
@@ -90,11 +91,11 @@ export function BlobManager() {
     setFilteredBlobs(filtered)
   }, [searchTerm, selectedType, blobs])
 
-  const toggleItemSelection = (url: string) => {
-    if (selectedItems.includes(url)) {
-      setSelectedItems(selectedItems.filter((item) => item !== url))
+  const toggleItemSelection = (pathname: string) => {
+    if (selectedItems.includes(pathname)) {
+      setSelectedItems(selectedItems.filter((item) => item !== pathname))
     } else {
-      setSelectedItems([...selectedItems, url])
+      setSelectedItems([...selectedItems, pathname])
     }
   }
 
@@ -102,20 +103,13 @@ export function BlobManager() {
     if (selectedItems.length === filteredBlobs.length) {
       setSelectedItems([])
     } else {
-      setSelectedItems(filteredBlobs.map((blob) => blob.url))
+      setSelectedItems(filteredBlobs.map((blob) => blob.pathname))
     }
   }
 
-  const deleteBlob = async (url: string) => {
+  const deleteBlob = async (path: string) => {
     try {
-      const response = await fetch(`/api/delete-blob?url=${encodeURIComponent(url)}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete file")
-      }
-
+      await deleteFile(path)
       toast({
         title: "Success",
         description: "File deleted successfully",
@@ -124,7 +118,7 @@ export function BlobManager() {
       // Refresh the list
       fetchBlobs()
     } catch (error) {
-      console.error("Error deleting blob:", error)
+      console.error("Error deleting file:", error)
       toast({
         title: "Error",
         description: "Failed to delete file",
@@ -137,8 +131,8 @@ export function BlobManager() {
     if (selectedItems.length === 0) return
 
     if (confirm(`Are you sure you want to delete ${selectedItems.length} item(s)?`)) {
-      for (const url of selectedItems) {
-        await deleteBlob(url)
+      for (const path of selectedItems) {
+        await deleteBlob(path)
       }
       setSelectedItems([])
     }
@@ -146,7 +140,7 @@ export function BlobManager() {
 
   const isVideo = (pathname: string) => {
     return (
-      pathname.includes("video-") ||
+      pathname.includes("videos/") ||
       pathname.endsWith(".mp4") ||
       pathname.endsWith(".webm") ||
       pathname.endsWith(".ogg")
@@ -173,7 +167,7 @@ export function BlobManager() {
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold">Gerenciar Arquivos (Vercel Blob)</h2>
+        <h2 className="text-xl font-bold">Gerenciar Arquivos (Firebase Storage)</h2>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <div className="relative flex-grow">
@@ -243,30 +237,6 @@ export function BlobManager() {
               <Trash2 size={16} className="mr-2" />
               Excluir
             </Button>
-            <Button
-              variant="outline"
-              className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333] ml-2"
-              onClick={async () => {
-                try {
-                  const response = await fetch("/api/debug")
-                  const data = await response.json()
-                  console.log("Debug data:", data)
-                  toast({
-                    title: "Informações de depuração",
-                    description: `Metadados: ${data.metadata.count} itens, Blobs: ${data.blobs.count} itens`,
-                  })
-                } catch (error) {
-                  console.error("Error fetching debug info:", error)
-                  toast({
-                    title: "Erro",
-                    description: "Falha ao obter informações de depuração",
-                    variant: "destructive",
-                  })
-                }
-              }}
-            >
-              Debug Metadata
-            </Button>
           </div>
         </div>
       )}
@@ -305,8 +275,8 @@ export function BlobManager() {
                   <td className="py-3 px-4">
                     <input
                       type="checkbox"
-                      checked={selectedItems.includes(blob.url)}
-                      onChange={() => toggleItemSelection(blob.url)}
+                      checked={selectedItems.includes(blob.pathname)}
+                      onChange={() => toggleItemSelection(blob.pathname)}
                       className="rounded bg-[#252525] border-[#333333] text-[#d87093]"
                     />
                   </td>
@@ -335,15 +305,15 @@ export function BlobManager() {
                       className={`px-2 py-1 rounded-full text-xs ${
                         isVideo(blob.pathname)
                           ? "bg-blue-900/30 text-blue-400"
-                          : blob.pathname.includes("thumbnail-")
+                          : blob.pathname.includes("thumbnails/")
                             ? "bg-yellow-900/30 text-yellow-400"
                             : "bg-purple-900/30 text-purple-400"
                       }`}
                     >
-                      {isVideo(blob.pathname) ? "Vídeo" : blob.pathname.includes("thumbnail-") ? "Thumbnail" : "Foto"}
+                      {isVideo(blob.pathname) ? "Vídeo" : blob.pathname.includes("thumbnails/") ? "Thumbnail" : "Foto"}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-gray-400">{formatFileSize(blob.size)}</td>
+                  <td className="py-3 px-4 text-gray-400">{formatFileSize(blob.size || 0)}</td>
                   <td className="py-3 px-4 text-gray-400">{formatDate(blob.uploadedAt)}</td>
                   <td className="py-3 px-4">
                     <div className="flex space-x-2">
@@ -357,7 +327,7 @@ export function BlobManager() {
                         <Eye size={18} />
                       </a>
                       <button
-                        onClick={() => deleteBlob(blob.url)}
+                        onClick={() => deleteBlob(blob.pathname)}
                         className="p-1 text-gray-400 hover:text-red-500"
                         title="Excluir"
                       >
@@ -381,7 +351,7 @@ export function BlobManager() {
                           >
                             Copiar URL
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-400" onClick={() => deleteBlob(blob.url)}>
+                          <DropdownMenuItem className="text-red-400" onClick={() => deleteBlob(blob.pathname)}>
                             Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>

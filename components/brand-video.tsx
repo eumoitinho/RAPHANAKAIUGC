@@ -46,8 +46,8 @@ export function BrandVideo() {
             </div>
 
             <p className="text-gray-300 max-w-lg">
-              Criação de conteúdo visual que conecta marcas com seu público de forma autêntica e impactante,
-              criando experiências memoráveis.
+              Criação de conteúdo visual que conecta marcas com seu público de forma autêntica e impactante, criando
+              experiências memoráveis.
             </p>
 
             <div className="pt-4">

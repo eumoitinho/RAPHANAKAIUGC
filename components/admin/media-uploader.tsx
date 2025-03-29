@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
-import { upload } from "@vercel/blob/client"
+import { uploadFile } from "@/lib/firebase-storage"
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg"
 
 export function MediaUploader() {
@@ -194,102 +194,89 @@ export function MediaUploader() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-  
+    e.preventDefault()
+
     if (!mediaFile || !title || selectedCategories.length === 0) {
       toast({
         title: "Erro de validação",
         description: "Por favor, preencha todos os campos obrigatórios",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
-  
-    setIsUploading(true);
-    setUploadProgress(10);
-  
+
+    setIsUploading(true)
+    setUploadProgress(10)
+
     try {
-      let fileToUpload = mediaFile;
-  
+      let fileToUpload = mediaFile
+
       // Se for vídeo, comprimir antes do upload
       if (mediaType === "video" && ffmpegLoaded) {
-        setUploadProgress(5);
+        setUploadProgress(5)
         toast({
           title: "Comprimindo vídeo",
           description: "Aguarde enquanto o vídeo é comprimido...",
-        });
-        fileToUpload = await compressVideo(mediaFile);
-        setUploadProgress(15);
+        })
+        fileToUpload = await compressVideo(mediaFile)
+        setUploadProgress(15)
       }
-  
+
       // Gerar ID único
-      const mediaId = uuidv4();
-      const timestamp = Date.now();
-      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`;
-  
-      console.log("Uploading media file...");
-      const mediaBlob = await upload(mediaFilename, fileToUpload, {
-        access: "public",
-        handleUploadUrl: "/api/upload-handler",
-        clientPayload: JSON.stringify({ mediaId }),
-        onUploadProgress: ({ percentage }) => {
-          setUploadProgress(20 + Math.round(percentage * 0.7)); // Ajuste de progresso
-        },
-      });
-  
-      console.log("Media uploaded:", mediaBlob);
-      setUploadProgress(90);
-  
+      const mediaId = uuidv4()
+      const timestamp = Date.now()
+      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}-${fileToUpload.name}`
+
+      // Upload to Firebase Storage
+      console.log("Uploading media file...")
+      const folderPath = mediaType === "video" ? "videos" : "photos"
+      const mediaResult = await uploadFile(fileToUpload, folderPath)
+
+      console.log("Media uploaded:", mediaResult)
+      setUploadProgress(90)
+
       // Definir thumbnailUrl corretamente
-      let thumbnailUrl = mediaBlob.url; // Por padrão, usa o próprio arquivo para fotos
-  
+      let thumbnailUrl = mediaResult.url // Por padrão, usa o próprio arquivo para fotos
+      let thumbnailPath = ""
+
       if (mediaType === "video" && thumbnailFile) {
-        const thumbnailFilename = `thumbnail-${timestamp}-${mediaId}-${thumbnailFile.name}`;
-        console.log("Uploading thumbnail...");
-  
-        const thumbnailBlob = await upload(thumbnailFilename, thumbnailFile, {
-          access: "public",
-          handleUploadUrl: "/api/upload-handler",
-          clientPayload: JSON.stringify({ mediaId, isThumb: true }),
-          onUploadProgress: ({ percentage }) => {
-            setUploadProgress(50 + Math.round(percentage * 0.4)); // Ajuste para vídeos
-          },
-        });
-  
-        console.log("Thumbnail uploaded:", thumbnailBlob);
-        thumbnailUrl = thumbnailBlob.url; // Apenas para vídeos
+        console.log("Uploading thumbnail...")
+        const thumbnailResult = await uploadFile(thumbnailFile, "thumbnails")
+        thumbnailUrl = thumbnailResult.url
+        thumbnailPath = thumbnailResult.path
+        console.log("Thumbnail uploaded:", thumbnailResult)
       }
-  
+
       // Adicionar mídia ao armazenamento de metadados
-      console.log("Adding media item to metadata storage...");
+      console.log("Adding media item to metadata storage...")
       const response = await fetch("/api/media/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           description,
-          fileUrl: mediaBlob.url,
-          thumbnailUrl, // Agora para fotos será o mesmo do arquivo
+          fileUrl: mediaResult.url,
+          thumbnailUrl,
           fileType: mediaType,
           categories: selectedCategories,
-          fileName: mediaFilename,
+          fileName: mediaResult.path,
         }),
-      });
-  
+      })
+
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to save metadata (${response.status}): ${errorText}`);
+        const errorText = await response.text()
+        throw new Error(`Failed to save metadata (${response.status}): ${errorText}`)
       }
-  
-      const result = await response.json();
-      console.log("Metadata saved successfully:", result.item);
-  
+
+      const result = await response.json()
+      console.log("Metadata saved successfully:", result.item)
+
       toast({
         title: "Upload completo",
         description: `Arquivo enviado com sucesso! ID: ${result.item.id}`,
-      });
-  
-      setUploadProgress(100);
+      })
+
+      setUploadProgress(100)
       setTimeout(() => {
         setIsUploading(false)
         setUploadSuccess(true)
@@ -297,31 +284,31 @@ export function MediaUploader() {
           title: "Upload concluído",
           description: "Seu arquivo foi enviado com sucesso!",
         })
-       // Reset form after success
-       setTimeout(() => {
-        setTitle("")
-        setDescription("")
-        setSelectedCategories([])
-        setMediaFile(null)
-        setThumbnailFile(null)
-        setMediaPreview(null)
-        setThumbnailPreview(null)
-        setUploadSuccess(false)
-        setUploadProgress(0)
-        setCompressedFile(null)
-      }, 2000)
-    }, 1000)
+        // Reset form after success
+        setTimeout(() => {
+          setTitle("")
+          setDescription("")
+          setSelectedCategories([])
+          setMediaFile(null)
+          setThumbnailFile(null)
+          setMediaPreview(null)
+          setThumbnailPreview(null)
+          setUploadSuccess(false)
+          setUploadProgress(0)
+          setCompressedFile(null)
+        }, 2000)
+      }, 1000)
     } catch (error) {
-      console.error("Upload error:", error);
-      setIsUploading(false);
+      console.error("Upload error:", error)
+      setIsUploading(false)
       toast({
         title: "Erro no upload",
         description: `Ocorreu um erro durante o upload: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
-      });
+      })
     }
-  };
-  
+  }
+
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <h2 className="text-xl font-bold mb-6">Upload de Mídia</h2>
@@ -509,56 +496,55 @@ export function MediaUploader() {
 
             {/* Thumbnail Upload */}
             {mediaType === "video" && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Thumbnail <span className="text-[#d87093]">*</span>
-              </label>
-              <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center ${
-                  thumbnailPreview ? "border-[#d87093]" : "border-gray-600 hover:border-gray-500"
-                }`}
-              >
-                {thumbnailPreview ? (
-                  <div className="relative">
-                    <div className="relative h-[200px] w-full">
-                      <Image
-                        src={thumbnailPreview || "/placeholder.svg"}
-                        alt="Thumbnail Preview"
-                        fill
-                        className="object-contain"
-                      />
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Thumbnail <span className="text-[#d87093]">*</span>
+                </label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center ${
+                    thumbnailPreview ? "border-[#d87093]" : "border-gray-600 hover:border-gray-500"
+                  }`}
+                >
+                  {thumbnailPreview ? (
+                    <div className="relative">
+                      <div className="relative h-[200px] w-full">
+                        <Image
+                          src={thumbnailPreview || "/placeholder.svg"}
+                          alt="Thumbnail Preview"
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThumbnailFile(null)
+                          setThumbnailPreview(null)
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setThumbnailFile(null)
-                        setThumbnailPreview(null)
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="py-8 cursor-pointer" onClick={() => thumbnailInputRef.current?.click()}>
-                    <Plus className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-400">Adicionar thumbnail</p>
-                    <p className="mt-1 text-xs text-gray-500">PNG, JPG ou GIF</p>
-                  </div>
-                )}
-                <input
-                  ref={thumbnailInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleThumbnailChange}
-                  className="hidden"
-                />
+                  ) : (
+                    <div className="py-8 cursor-pointer" onClick={() => thumbnailInputRef.current?.click()}>
+                      <Plus className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-400">Adicionar thumbnail</p>
+                      <p className="mt-1 text-xs text-gray-500">PNG, JPG ou GIF</p>
+                    </div>
+                  )}
+                  <input
+                    ref={thumbnailInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailChange}
+                    className="hidden"
+                  />
+                </div>
               </div>
-            </div>
-                          )}
+            )}
           </div>
         </div>
-
 
         {/* Upload Progress */}
         {isUploading && (
@@ -615,6 +601,3 @@ export function MediaUploader() {
   )
 }
 
-function resetForm() {
-  throw new Error("Function not implemented.")
-}

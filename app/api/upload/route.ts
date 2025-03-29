@@ -1,6 +1,5 @@
-import { put } from "@vercel/blob"
-import { createSignedUploadUrl } from "@vercel/blob"
 import { NextResponse } from "next/server"
+import { uploadFile } from "@/lib/firebase-storage"
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -12,46 +11,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const filename = (formData.get("filename") as string) || file.name
+    const fileType = file.type.startsWith("video/") ? "videos" : "photos"
 
-    // Check if BLOB_READ_WRITE_TOKEN is available
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error("Missing BLOB_READ_WRITE_TOKEN environment variable")
-      return NextResponse.json({ error: "Server configuration error: Missing Blob token" }, { status: 500 })
-    }
-
-    // Upload to Vercel Blob
+    // Upload to Firebase Storage
     console.log(`Uploading file: ${filename}, size: ${file.size} bytes`)
-    const blob = await put(filename, file, {
-      access: "public",
-      addRandomSuffix: true, // Ensures unique filenames
-    })
+    const result = await uploadFile(file, fileType)
 
-    console.log("Upload successful:", blob)
+    console.log("Upload successful:", result)
     return NextResponse.json({
-      url: blob.url,
-      // size: blob.size, // Removed as it does not exist on PutBlobResult
-      // uploadedAt: blob.uploadedAt, // Removed as it does not exist on PutBlobResult
+      url: result.url,
+      path: result.path,
     })
   } catch (error) {
     console.error("Upload error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error occurred" },
-      { status: 500 },
-    )
-  }
-}
-
-export async function GET(): Promise<NextResponse> {
-  try {
-    // Generate a signed upload URL
-    const signedUrl = await createSignedUploadUrl({
-      access: "public", // Make the file publicly accessible
-      expiresIn: "15m", // URL expires in 15 minutes
-    })
-
-    return NextResponse.json({ url: signedUrl.url })
-  } catch (error) {
-    console.error("Error generating signed upload URL:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },
