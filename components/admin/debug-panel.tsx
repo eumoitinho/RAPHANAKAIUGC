@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FirebaseStatus } from "./firebase-status"
 import { FirebaseStorageCheck } from "./firebase-storage-check"
+import { FirebaseAdminTest } from "./firebase-admin-test"
 
 export function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -35,6 +36,8 @@ export function DebugPanel() {
         <FirebaseStatus />
 
         <FirebaseStorageCheck />
+
+        <FirebaseAdminTest />
 
         <div>
           <p className="text-sm text-gray-400 mb-2">API Status:</p>

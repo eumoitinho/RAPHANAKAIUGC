@@ -25,28 +25,30 @@ try {
 const adminStorage = getStorage(app)
 const bucket = adminStorage.bucket()
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   try {
-    console.log("Listing files from Firebase Storage...")
+    const { searchParams } = new URL(request.url)
+    const directory = searchParams.get("directory") || ""
 
-    // Get all files from the bucket
-    const [files] = await bucket.getFiles()
+    // List files in the directory
+    const [files] = await bucket.getFiles({ prefix: directory })
 
-    // Format the response to match the expected structure
-    const blobs = files.map((file) => {
+    // Format the response
+    const formattedFiles = files.map((file) => {
+      const name = file.name.split("/").pop() || file.name
       const url = `https://storage.googleapis.com/${bucket.name}/${file.name}`
 
       return {
+        name,
         url,
-        pathname: file.name,
-        size: Number.parseInt(file.metadata.size || "0"),
-        uploadedAt: file.metadata.timeCreated || new Date().toISOString(),
+        fullPath: file.name,
       }
     })
 
-    console.log(`Found ${blobs.length} files`)
-
-    return NextResponse.json({ blobs })
+    return NextResponse.json({
+      success: true,
+      files: formattedFiles,
+    })
   } catch (error) {
     console.error("Error listing files:", error)
     return NextResponse.json(

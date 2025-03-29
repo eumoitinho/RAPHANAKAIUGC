@@ -68,7 +68,7 @@ export function FirebaseStatus() {
       {status === "connected" && (
         <div className="mt-2 text-xs text-green-400">
           <p>Firebase inicializado com sucesso!</p>
-          <p className="mt-1">Projeto: {process.env.FIREBASE_PROJECT_ID}</p>
+          <p className="mt-1">Projeto: {process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}</p>
         </div>
       )}
     </div>

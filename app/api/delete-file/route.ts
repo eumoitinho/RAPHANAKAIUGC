@@ -25,30 +25,23 @@ try {
 const adminStorage = getStorage(app)
 const bucket = adminStorage.bucket()
 
-export async function GET(): Promise<NextResponse> {
+export async function DELETE(request: Request): Promise<NextResponse> {
   try {
-    console.log("Listing files from Firebase Storage...")
+    const { searchParams } = new URL(request.url)
+    const path = searchParams.get("path")
 
-    // Get all files from the bucket
-    const [files] = await bucket.getFiles()
+    if (!path) {
+      return NextResponse.json({ error: "Path parameter is required" }, { status: 400 })
+    }
 
-    // Format the response to match the expected structure
-    const blobs = files.map((file) => {
-      const url = `https://storage.googleapis.com/${bucket.name}/${file.name}`
+    // Delete the file
+    await bucket.file(path).delete()
 
-      return {
-        url,
-        pathname: file.name,
-        size: Number.parseInt(file.metadata.size || "0"),
-        uploadedAt: file.metadata.timeCreated || new Date().toISOString(),
-      }
+    return NextResponse.json({
+      success: true,
     })
-
-    console.log(`Found ${blobs.length} files`)
-
-    return NextResponse.json({ blobs })
   } catch (error) {
-    console.error("Error listing files:", error)
+    console.error("Error deleting file:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error occurred" },
       { status: 500 },

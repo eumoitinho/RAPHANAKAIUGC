@@ -1,77 +1,69 @@
 "use client"
 
-import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage"
-import { clientStorage } from "./firebase"
-import { v4 as uuidv4 } from "uuid"
-
-// Upload a file to Firebase Storage
+// Upload a file to Firebase Storage via our server API
 export async function uploadFile(file: File, path = ""): Promise<{ url: string; path: string }> {
   try {
-    // Check if storage bucket is configured
-    const bucket = clientStorage.app.options.storageBucket
-    if (!bucket) {
-      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folderPath", path)
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
+
+    // Check if the response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      // If not JSON, get the text and throw a more helpful error
+      const text = await response.text()
+      console.error("Server returned non-JSON response:", text)
+      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
     }
 
-    // Generate a unique filename
-    const fileExtension = file.name.split(".").pop()
-    const fileName = `${path}/${uuidv4()}.${fileExtension}`
-    const storageRef = ref(clientStorage, fileName)
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Upload failed with status: ${response.status}`)
+    }
 
-    // Upload the file
-    const snapshot = await uploadBytes(storageRef, file)
-
-    // Get the download URL
-    const url = await getDownloadURL(snapshot.ref)
-
-    return { url, path: fileName }
+    const data = await response.json()
+    return { url: data.url, path: data.path }
   } catch (error) {
     console.error("Error uploading file:", error)
     throw error
   }
 }
 
-// List all files in a directory
+// List all files in a directory - this will need to be implemented via server API
 export async function listFiles(directory = ""): Promise<{ name: string; url: string; fullPath: string }[]> {
   try {
-    // Check if storage bucket is configured
-    const bucket = clientStorage.app.options.storageBucket
-    if (!bucket) {
-      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    const response = await fetch(`/api/list-files?directory=${encodeURIComponent(directory)}`)
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Listing files failed with status: ${response.status}`)
     }
 
-    const listRef = ref(clientStorage, directory)
-    const res = await listAll(listRef)
-
-    const files = await Promise.all(
-      res.items.map(async (itemRef) => {
-        const url = await getDownloadURL(itemRef)
-        return {
-          name: itemRef.name,
-          url,
-          fullPath: itemRef.fullPath,
-        }
-      }),
-    )
-
-    return files
+    const data = await response.json()
+    return data.files
   } catch (error) {
     console.error("Error listing files:", error)
     throw error
   }
 }
 
-// Delete a file from Firebase Storage
+// Delete a file from Firebase Storage - this will need to be implemented via server API
 export async function deleteFile(filePath: string): Promise<boolean> {
   try {
-    // Check if storage bucket is configured
-    const bucket = clientStorage.app.options.storageBucket
-    if (!bucket) {
-      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    const response = await fetch(`/api/delete-file?path=${encodeURIComponent(filePath)}`, {
+      method: "DELETE",
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Deleting file failed with status: ${response.status}`)
     }
 
-    const fileRef = ref(clientStorage, filePath)
-    await deleteObject(fileRef)
     return true
   } catch (error) {
     console.error("Error deleting file:", error)
@@ -79,17 +71,18 @@ export async function deleteFile(filePath: string): Promise<boolean> {
   }
 }
 
-// Get a file's download URL
+// Get a file's download URL - this will need to be implemented via server API
 export async function getFileUrl(filePath: string): Promise<string> {
   try {
-    // Check if storage bucket is configured
-    const bucket = clientStorage.app.options.storageBucket
-    if (!bucket) {
-      throw new Error("Firebase Storage bucket is not configured. Please check your environment variables.")
+    const response = await fetch(`/api/get-file-url?path=${encodeURIComponent(filePath)}`)
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Getting file URL failed with status: ${response.status}`)
     }
 
-    const fileRef = ref(clientStorage, filePath)
-    return await getDownloadURL(fileRef)
+    const data = await response.json()
+    return data.url
   } catch (error) {
     console.error("Error getting file URL:", error)
     throw error
