@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
-import { list } from "@vercel/blob"
+import { readdir, stat } from "fs/promises"
+import { join } from "path"
+import { existsSync } from "fs"
 import { getAllMediaMetadata } from "@/lib/metadata-storage"
 
-// Função para extrair o tipo de arquivo do nome do blob
+// Function to extract the file type from the path
 function getFileTypeFromPath(pathname: string): "video" | "photo" {
   const lowerPath = pathname.toLowerCase()
 
   if (
-    lowerPath.includes("video-") ||
+    lowerPath.includes("videos/") ||
     lowerPath.endsWith(".mp4") ||
     lowerPath.endsWith(".webm") ||
     lowerPath.endsWith(".mov")
@@ -18,15 +20,15 @@ function getFileTypeFromPath(pathname: string): "video" | "photo" {
   return "photo"
 }
 
-// Função para extrair categorias do nome do arquivo (fallback)
+// Function to extract categories from the path (fallback)
 function getCategoriesFromPath(pathname: string): string[] {
-  // Extrai o nome do arquivo sem o caminho
+  // Extract the filename without the path
   const filename = pathname.split("/").pop() || ""
 
-  // Categorias padrão se não conseguirmos extrair
+  // Default categories if we can't extract any
   const defaultCategories = ["Sem categoria"]
 
-  // Se o nome do arquivo contém certas palavras-chave, podemos usá-las como categorias
+  // If the filename contains certain keywords, we can use them as categories
   const possibleCategories = []
 
   if (filename.toLowerCase().includes("beauty")) possibleCategories.push("Beauty")
@@ -42,58 +44,76 @@ function getCategoriesFromPath(pathname: string): string[] {
   return possibleCategories.length > 0 ? possibleCategories : defaultCategories
 }
 
+// Function to get all files in the uploads directory
+async function getAllFiles(directory: string) {
+  const files = []
+  const fullPath = join(process.cwd(), "public", directory)
+
+  if (!existsSync(fullPath)) {
+    return []
+  }
+
+  const entries = await readdir(fullPath, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name)
+    const fullEntryPath = join(fullPath, entry.name)
+
+    if (entry.isFile()) {
+      const fileStat = await stat(fullEntryPath)
+      files.push({
+        url: `/${entryPath}`,
+        pathname: entryPath,
+        size: fileStat.size,
+        uploadedAt: fileStat.mtime.toISOString(),
+      })
+    } else if (entry.isDirectory()) {
+      const subDirFiles = await getAllFiles(entryPath)
+      files.push(...subDirFiles)
+    }
+  }
+
+  return files
+}
+
 export async function GET(): Promise<NextResponse> {
   console.log("API: GET /api/portfolio - Request received")
 
   try {
-    // Verificar se o token do Blob está disponível
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error("API: Missing BLOB_READ_WRITE_TOKEN environment variable")
-      return NextResponse.json(
-        {
-          error: "Missing BLOB_READ_WRITE_TOKEN environment variable",
-          items: [],
-        },
-        { status: 500 },
-      )
-    }
+    // Get all files from the uploads directory
+    console.log("API: Fetching files from local storage")
+    const files = await getAllFiles("uploads")
+    console.log(`API: Found ${files.length} files`)
 
-    // Buscar todos os blobs
-    console.log("API: Fetching blobs from Vercel Blob")
-    const blobsResponse = await list()
-    const blobs = blobsResponse.blobs
-
-    console.log(`API: Found ${blobs.length} blobs`)
-
-    // Tentar buscar metadados (mas não falhar se não conseguir)
+    // Try to fetch metadata (but don't fail if we can't)
     let metadata: any[] = []
     try {
       console.log("API: Fetching metadata")
       metadata = await getAllMediaMetadata()
       console.log(`API: Found ${metadata.length} metadata items`)
     } catch (metadataError) {
-      console.error("API: Error fetching metadata, will use blob info only:", metadataError)
+      console.error("API: Error fetching metadata, will use file info only:", metadataError)
     }
 
-    // Criar um mapa de URLs para metadados para facilitar a busca
+    // Create a map of URLs to metadata for easy lookup
     const metadataMap = new Map()
     metadata.forEach((item) => {
       metadataMap.set(item.fileUrl, item)
 
-      // Também mapear pelo nome do arquivo, caso a URL completa não corresponda
+      // Also map by filename, in case the full URL doesn't match
       if (item.fileName) {
         metadataMap.set(item.fileName, item)
       }
     })
 
-    // Filtrar thumbnails e arquivos que não são mídia
-    const mediaBlobs = blobs.filter((blob) => {
-      const path = blob.pathname.toLowerCase()
+    // Filter out non-media files
+    const mediaFiles = files.filter((file) => {
+      const path = file.pathname.toLowerCase()
       return (
         !path.includes("metadata.json") &&
         !path.includes("portfolio-metadata.json") &&
-        (path.includes("video-") ||
-          path.includes("photo-") ||
+        (path.includes("videos/") ||
+          path.includes("photos/") ||
           path.endsWith(".jpg") ||
           path.endsWith(".jpeg") ||
           path.endsWith(".png") ||
@@ -104,13 +124,13 @@ export async function GET(): Promise<NextResponse> {
       )
     })
 
-    // Separar thumbnails e arquivos principais
-    const thumbnails = blobs.filter((blob) => blob.pathname.toLowerCase().includes("thumbnail-"))
+    // Separate thumbnails and main files
+    const thumbnails = files.filter((file) => file.pathname.toLowerCase().includes("thumbnails/"))
     const thumbnailMap = new Map()
 
-    // Criar um mapa de thumbnails para facilitar a associação
+    // Create a map of thumbnails for easy association
     thumbnails.forEach((thumb) => {
-      // Extrair o ID ou parte do nome que pode corresponder ao arquivo principal
+      // Extract the ID or part of the name that might correspond to the main file
       const filename = thumb.pathname.split("/").pop() || ""
       const baseNameMatch = filename.match(/thumbnail-([^-]+)/)
 
@@ -118,59 +138,59 @@ export async function GET(): Promise<NextResponse> {
         thumbnailMap.set(baseNameMatch[1], thumb.url)
       }
 
-      // Também armazenar o caminho completo
+      // Also store the full path
       thumbnailMap.set(thumb.pathname, thumb.url)
     })
 
-    // Combinar blobs com metadados
-    const portfolioItems = mediaBlobs.map((blob) => {
-      // Verificar se temos metadados para este blob
-      const metadata = metadataMap.get(blob.url) || metadataMap.get(blob.pathname)
+    // Combine files with metadata
+    const portfolioItems = mediaFiles.map((file) => {
+      // Check if we have metadata for this file
+      const metadata = metadataMap.get(file.url) || metadataMap.get(file.pathname)
 
-      // Se temos metadados, usá-los
+      // If we have metadata, use it
       if (metadata) {
         return {
           ...metadata,
-          // Garantir que a URL do blob seja usada mesmo se o metadado tiver uma URL diferente
-          fileUrl: blob.url,
-          // Adicionar informações do blob que podem não estar nos metadados
-          size: blob.size,
-          uploadedAt: blob.uploadedAt,
+          // Ensure we use the file URL even if the metadata has a different URL
+          fileUrl: file.url,
+          // Add file info that might not be in the metadata
+          size: file.size,
+          uploadedAt: file.uploadedAt,
         }
       }
 
-      // Caso contrário, criar um item com as informações do blob
-      const filename = blob.pathname.split("/").pop() || "Arquivo sem nome"
-      const fileType = getFileTypeFromPath(blob.pathname)
+      // Otherwise, create an item with the file info
+      const filename = file.pathname.split("/").pop() || "Unnamed file"
+      const fileType = getFileTypeFromPath(file.pathname)
 
-      // Tentar encontrar uma thumbnail correspondente
+      // Try to find a matching thumbnail
       let thumbnailUrl = null
       const baseNameMatch = filename.match(/([^-]+)/)
       if (baseNameMatch && baseNameMatch[1]) {
         thumbnailUrl = thumbnailMap.get(baseNameMatch[1])
       }
 
-      // Se não encontrou, usar uma thumbnail genérica baseada no tipo
+      // If we didn't find one, use a generic thumbnail based on the type
       if (!thumbnailUrl) {
-        thumbnailUrl = fileType === "video" ? "/placeholder.svg?height=400&width=300&text=Video" : blob.url // Para fotos, usar a própria imagem como thumbnail
+        thumbnailUrl = fileType === "video" ? "/placeholder.svg?height=400&width=300&text=Video" : file.url // For photos, use the image itself as the thumbnail
       }
 
       return {
-        id: `blob-${blob.pathname.replace(/[^a-zA-Z0-9]/g, "-")}`,
+        id: `file-${file.pathname.replace(/[^a-zA-Z0-9]/g, "-")}`,
         title: filename.replace(/\.(jpg|jpeg|png|gif|mp4|webm|mov)$/i, "").replace(/-/g, " "),
-        description: `Arquivo carregado em ${new Date(blob.uploadedAt).toLocaleDateString()}`,
-        fileUrl: blob.url,
+        description: `File uploaded on ${new Date(file.uploadedAt).toLocaleDateString()}`,
+        fileUrl: file.url,
         thumbnailUrl: thumbnailUrl,
         fileType: fileType,
-        categories: getCategoriesFromPath(blob.pathname),
-        dateCreated: blob.uploadedAt,
+        categories: getCategoriesFromPath(file.pathname),
+        dateCreated: file.uploadedAt,
         views: 0,
-        fileName: blob.pathname,
-        size: blob.size,
+        fileName: file.pathname,
+        size: file.size,
       }
     })
 
-    // Ordenar por data de upload (mais recentes primeiro)
+    // Sort by upload date (newest first)
     portfolioItems.sort((a, b) => {
       const dateA = new Date(a.uploadedAt || a.dateCreated).getTime()
       const dateB = new Date(b.uploadedAt || b.dateCreated).getTime()
@@ -180,7 +200,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({
       items: portfolioItems,
       totalCount: portfolioItems.length,
-      usingBlobManager: true,
+      usingLocalStorage: true,
     })
   } catch (error) {
     console.error("API: Error in portfolio endpoint:", error)

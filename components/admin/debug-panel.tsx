@@ -1,14 +1,39 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, FolderPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { FirebaseStatus } from "./firebase-status"
-import { FirebaseStorageCheck } from "./firebase-storage-check"
-import { FirebaseAdminTest } from "./firebase-admin-test"
+import { toast } from "@/hooks/use-toast"
 
 export function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isCreatingDirs, setIsCreatingDirs] = useState(false)
+
+  const ensureUploadDirectories = async () => {
+    setIsCreatingDirs(true)
+    try {
+      const response = await fetch("/api/local/ensure-uploads-dir")
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Upload directories created successfully",
+        })
+      } else {
+        throw new Error(data.error || "Failed to create upload directories")
+      }
+    } catch (error) {
+      console.error("Error creating upload directories:", error)
+      toast({
+        title: "Error",
+        description: `Failed to create upload directories: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreatingDirs(false)
+    }
+  }
 
   if (!isOpen) {
     return (
@@ -33,11 +58,22 @@ export function DebugPanel() {
       </div>
 
       <div className="space-y-4">
-        <FirebaseStatus />
-
-        <FirebaseStorageCheck />
-
-        <FirebaseAdminTest />
+        <div className="p-4 bg-[#252525] rounded-lg">
+          <h4 className="text-sm font-medium mb-2">Local Storage</h4>
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-[#333333] border-[#444444] text-white hover:bg-[#444444]"
+            onClick={ensureUploadDirectories}
+            disabled={isCreatingDirs}
+          >
+            <FolderPlus className="mr-2 h-4 w-4" />
+            {isCreatingDirs ? "Creating..." : "Create Upload Directories"}
+          </Button>
+          <p className="mt-2 text-xs text-gray-400">
+            This will create the necessary directories for file uploads if they don't exist.
+          </p>
+        </div>
 
         <div>
           <p className="text-sm text-gray-400 mb-2">API Status:</p>
@@ -47,17 +83,24 @@ export function DebugPanel() {
             className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
             onClick={async () => {
               try {
-                const response = await fetch("/api/blobs")
+                const response = await fetch("/api/local/blobs")
                 const data = await response.json()
                 console.log("API Response:", data)
-                alert("API check complete. See console for details.")
+                toast({
+                  title: "API Check",
+                  description: `Found ${data.blobs?.length || 0} files in local storage`,
+                })
               } catch (error) {
                 console.error("API Error:", error)
-                alert(`API Error: ${error instanceof Error ? error.message : String(error)}`)
+                toast({
+                  title: "API Error",
+                  description: `${error instanceof Error ? error.message : String(error)}`,
+                  variant: "destructive",
+                })
               }
             }}
           >
-            Test API Connection
+            Test Local Storage API
           </Button>
         </div>
       </div>

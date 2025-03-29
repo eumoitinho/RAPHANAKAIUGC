@@ -1,0 +1,16 @@
+[
+  {
+    "title": "teste",
+    "description": "teste",
+    "fileUrl": "/uploads/videos/aaef08db-c935-457f-9542-ae63bc93747d.mp4",
+    "thumbnailUrl": "/uploads/thumbnails/95a123c6-b2f7-4286-bd35-35aade2cfb51.jpg",
+    "fileType": "video",
+    "categories": [
+      "ADS"
+    ],
+    "fileName": "uploads/videos/aaef08db-c935-457f-9542-ae63bc93747d.mp4",
+    "id": "5bc3ad7b-2169-48e2-97f1-5fe699253f0f",
+    "views": 1,
+    "dateCreated": "2025-03-29T23:56:26.844Z"
+  }
+]

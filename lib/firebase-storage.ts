@@ -1,6 +1,6 @@
 "use client"
 
-// Upload a file to Firebase Storage via our server API
+// Upload a file to local storage via our server API
 export async function uploadFile(file: File, path = ""): Promise<{ url: string; path: string }> {
   try {
     const formData = new FormData()
@@ -34,10 +34,18 @@ export async function uploadFile(file: File, path = ""): Promise<{ url: string; 
   }
 }
 
-// List all files in a directory - this will need to be implemented via server API
+// List all files in a directory
 export async function listFiles(directory = ""): Promise<{ name: string; url: string; fullPath: string }[]> {
   try {
     const response = await fetch(`/api/list-files?directory=${encodeURIComponent(directory)}`)
+
+    // Check if the response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text()
+      console.error("Server returned non-JSON response:", text)
+      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
+    }
 
     if (!response.ok) {
       const errorData = await response.json()
@@ -52,12 +60,20 @@ export async function listFiles(directory = ""): Promise<{ name: string; url: st
   }
 }
 
-// Delete a file from Firebase Storage - this will need to be implemented via server API
+// Delete a file
 export async function deleteFile(filePath: string): Promise<boolean> {
   try {
     const response = await fetch(`/api/delete-file?path=${encodeURIComponent(filePath)}`, {
       method: "DELETE",
     })
+
+    // Check if the response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text()
+      console.error("Server returned non-JSON response:", text)
+      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
+    }
 
     if (!response.ok) {
       const errorData = await response.json()
@@ -71,21 +87,9 @@ export async function deleteFile(filePath: string): Promise<boolean> {
   }
 }
 
-// Get a file's download URL - this will need to be implemented via server API
+// Get a file's URL
 export async function getFileUrl(filePath: string): Promise<string> {
-  try {
-    const response = await fetch(`/api/get-file-url?path=${encodeURIComponent(filePath)}`)
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `Getting file URL failed with status: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.url
-  } catch (error) {
-    console.error("Error getting file URL:", error)
-    throw error
-  }
+  // For local storage, we can just return the path directly
+  return `/${filePath}`
 }
 

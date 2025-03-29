@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
-import { deleteFile } from "@/lib/firebase-storage"
+import { deleteFile } from "@/lib/local-storage"
 
 type Blob = {
   url: string
@@ -27,8 +27,8 @@ export function BlobManager() {
   const fetchBlobs = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching files from Firebase Storage...")
-      const response = await fetch("/api/blobs")
+      console.log("Fetching files from local storage...")
+      const response = await fetch("/api/local/blobs")
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -167,7 +167,7 @@ export function BlobManager() {
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold">Gerenciar Arquivos (Firebase Storage)</h2>
+        <h2 className="text-xl font-bold">Gerenciar Arquivos (Local Storage)</h2>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <div className="relative flex-grow">

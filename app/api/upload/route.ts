@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server"
-import { bucket } from "@/lib/firebase-admin"
 import { v4 as uuidv4 } from "uuid"
+import { writeFile } from "fs/promises"
+import { join } from "path"
+import { mkdir } from "fs/promises"
+import { existsSync } from "fs"
+
+// Ensure upload directory exists
+async function ensureUploadDir(dir: string) {
+  if (!existsSync(dir)) {
+    await mkdir(dir, { recursive: true })
+  }
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -17,33 +27,33 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // Generate a unique filename
     const fileExtension = file.name.split(".").pop() || ""
-    const fileName = `${folderPath}/${uuidv4()}.${fileExtension}`
+    const uniqueId = uuidv4()
+    const fileName = `${uniqueId}.${fileExtension}`
 
-    // Convert File to Buffer
+    // Create directory structure
+    const publicDir = join(process.cwd(), "public")
+    const uploadsDir = join(publicDir, "uploads")
+    const targetDir = join(uploadsDir, folderPath)
+
+    await ensureUploadDir(targetDir)
+
+    // Full path to save the file
+    const filePath = join(targetDir, fileName)
+
+    // Convert File to Buffer and save it
     const buffer = Buffer.from(await file.arrayBuffer())
+    await writeFile(filePath, buffer)
 
-    // Create a file in the bucket
-    const fileRef = bucket.file(fileName)
-
-    // Upload the file
-    await fileRef.save(buffer, {
-      metadata: {
-        contentType: file.type,
-      },
-    })
-
-    // Make the file publicly accessible
-    await fileRef.makePublic()
-
-    // Get the public URL
-    const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`
+    // Generate the public URL
+    const relativePath = `uploads/${folderPath}/${fileName}`
+    const url = `/${relativePath}`
 
     console.log(`File uploaded successfully: ${fileName}`)
 
     return NextResponse.json({
       success: true,
       url,
-      path: fileName,
+      path: relativePath,
     })
   } catch (error) {
     console.error("Error uploading file:", error)

@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
-import { uploadFile } from "@/lib/firebase-storage"
-import { clientStorage } from "@/lib/firebase"
+import { uploadFile } from "@/lib/local-storage"
 
 export function MediaUploader() {
   const [mediaType, setMediaType] = useState<"video" | "photo">("video")
@@ -79,39 +78,15 @@ export function MediaUploader() {
       return
     }
 
-    // Check if Firebase Storage is properly configured
-    try {
-      const bucket = clientStorage.app.options.storageBucket
-      if (!bucket) {
-        toast({
-          title: "Erro de configuração",
-          description:
-            "O Firebase Storage não está configurado corretamente. Verifique a variável de ambiente NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.",
-          variant: "destructive",
-        })
-        return
-      }
-    } catch (error) {
-      console.error("Firebase Storage configuration error:", error)
-      toast({
-        title: "Erro de configuração",
-        description: "Ocorreu um erro ao verificar a configuração do Firebase Storage.",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsUploading(true)
     setUploadProgress(10)
 
     try {
-      // Gerar ID único
+      // Generate a unique ID
       const mediaId = uuidv4()
       const timestamp = Date.now()
-      const fileExtension = mediaFile.name.split(".").pop() || ""
-      const mediaFilename = `${mediaType}-${timestamp}-${mediaId}.${fileExtension}`
 
-      // Upload to Firebase Storage
+      // Upload to server
       console.log("Uploading media file...")
       const folderPath = mediaType === "video" ? "videos" : "photos"
       setUploadProgress(20)
@@ -121,8 +96,8 @@ export function MediaUploader() {
       console.log("Media uploaded:", mediaResult)
       setUploadProgress(70)
 
-      // Definir thumbnailUrl corretamente
-      let thumbnailUrl = mediaResult.url // Por padrão, usa o próprio arquivo para fotos
+      // Set thumbnail URL correctly
+      let thumbnailUrl = mediaResult.url // Default to the file itself for photos
       let thumbnailPath = ""
 
       if (mediaType === "video" && thumbnailFile) {
@@ -134,7 +109,7 @@ export function MediaUploader() {
         setUploadProgress(90)
       }
 
-      // Adicionar mídia ao armazenamento de metadados
+      // Add media to metadata storage
       console.log("Adding media item to metadata storage...")
       const response = await fetch("/api/media/add", {
         method: "POST",
