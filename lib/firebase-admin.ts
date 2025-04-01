@@ -15,15 +15,25 @@ const initializeFirebaseAdmin = () => {
       if (admin && serviceAccount) {
         console.log("Initializing Firebase Admin with service account credentials")
         return admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount)
+          credential: admin.credential.cert({
+            client_email: process.env.FIREBASE_CLIENT_EMAIL,
+            private_key: process.env.FIREBASE_PRIVATE_KEY,
+            project_id: 'uffa-expence-tracker-app'
+          }),
+          databaseURL: 'https://v0-raphanakaiugc.vercel.app/'
         });
       }
 
       // Otherwise initialize with just the project ID (works on Vercel with linked Firebase)
       console.log("Initializing Firebase Admin with application default credentials")
-      return initializeApp(      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      }))
+      return admin.initializeApp({
+        credential: admin.credential.cert({
+          client_email: process.env.FIREBASE_CLIENT_EMAIL,
+          private_key: process.env.FIREBASE_PRIVATE_KEY,
+          project_id: 'uffa-expence-tracker-app'
+        }),
+        databaseURL: 'https://v0-raphanakaiugc.vercel.app/'
+      });
     } catch (error) {
       console.error("Error initializing Firebase Admin:", error)
       throw error
