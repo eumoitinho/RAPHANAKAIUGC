@@ -27,3 +27,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#json
+uffa-expence-tracker-app-52c615657448.json
