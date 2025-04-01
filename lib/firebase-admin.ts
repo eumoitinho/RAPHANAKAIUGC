@@ -8,7 +8,7 @@ const initializeFirebaseAdmin = () => {
     // Use environment variables or service account directly
     var admin = require("firebase-admin");
 
-    var serviceAccount = require("../uffa-expence-tracker-app-52c615657448.json");
+    var serviceAccount = require("../cert/uffa-expence-tracker-app-52c615657448.json");
 
     try {
       // If we have service account credentials, use them
