@@ -1,50 +1,44 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app"
-import { getStorage } from "firebase-admin/storage"
 import { getFirestore } from "firebase-admin/firestore"
+import { getStorage } from "firebase-admin/storage"
 
-// Initialize Firebase Admin SDK
-function initializeFirebaseAdmin() {
+// Initialize Firebase Admin SDK for server-side operations
+const initializeFirebaseAdmin = () => {
   if (getApps().length === 0) {
-    try {
-      // Check if we have all required environment variables
-      const projectId = process.env.FIREBASE_PROJECT_ID
-      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n")
-      const storageBucket = process.env.FIREBASE_STORAGE_BUCKET
+    // Use environment variables or service account directly
+    var admin = require("firebase-admin");
 
-      if (!projectId || !clientEmail || !privateKey || !storageBucket) {
-        throw new Error("Missing Firebase Admin environment variables")
+    var serviceAccount = require("../uffa-expence-tracker-app-52c615657448.json");
+
+    try {
+      // If we have service account credentials, use them
+      if (admin && serviceAccount) {
+        console.log("Initializing Firebase Admin with service account credentials")
+        return admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
       }
 
-      const app = initializeApp({
-        credential: cert({
-          projectId,
-          clientEmail,
-          privateKey,
-        }),
-        storageBucket,
-      })
-
-      console.log("Firebase Admin SDK initialized successfully")
-      return app
+      // Otherwise initialize with just the project ID (works on Vercel with linked Firebase)
+      console.log("Initializing Firebase Admin with application default credentials")
+      return initializeApp(      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      }))
     } catch (error) {
-      console.error("Firebase Admin SDK initialization error:", error)
+      console.error("Error initializing Firebase Admin:", error)
       throw error
     }
-  } else {
-    return getApps()[0]
   }
+
+  return getApps()[0]
 }
 
-// Get Firebase Admin app instance
+// Initialize the app
 const app = initializeFirebaseAdmin()
 
-// Get Firebase Admin Storage
+// Get Firestore and Storage instances
+const adminDb = getFirestore(app)
 const adminStorage = getStorage(app)
-const bucket = adminStorage.bucket()
 
-// Get Firebase Admin Firestore
-const adminFirestore = getFirestore(app)
-
-export { app, adminStorage, bucket, adminFirestore }
+export { adminDb, adminStorage, app }
 

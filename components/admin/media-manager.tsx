@@ -1,43 +1,73 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
-import { Search, Filter, Edit, Trash2, Play, Eye, MoreVertical } from "lucide-react"
+import { Search, Filter, Trash2, Eye, MoreVertical, RefreshCw } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "@/hooks/use-toast"
+import Image from "next/image"
+import { getAllMediaItems } from "@/lib/firestore-service"
+import type { MediaItem } from "@/lib/firestore-service"
 
 export function MediaManager() {
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [filteredItems, setFilteredItems] = useState<MediaItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [mediaItems, setMediaItems] = useState<any[]>([])
 
-  // Load media from localStorage
-  useEffect(() => {
-    const loadMedia = () => {
-      if (typeof window !== "undefined") {
-        const storedMedia = JSON.parse(localStorage.getItem("mediaItems") || "[]")
-        setMediaItems(storedMedia)
-      }
+  const fetchMediaItems = async () => {
+    setIsLoading(true)
+    try {
+      console.log("Fetching media items from Firestore...")
+      const items = await getAllMediaItems()
+      console.log(`Found ${items.length} media items`)
+      setMediaItems(items)
+      setFilteredItems(items)
+    } catch (error) {
+      console.error("Error fetching media items:", error)
+      toast({
+        title: "Error",
+        description: `Failed to fetch media items: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      })
+      // Initialize with empty arrays to prevent UI errors
+      setMediaItems([])
+      setFilteredItems([])
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    loadMedia()
-    // Setup interval to refresh data every 5 seconds in case it was updated in another component
-    const intervalId = setInterval(loadMedia, 5000)
-
-    return () => clearInterval(intervalId)
+  useEffect(() => {
+    fetchMediaItems()
   }, [])
 
-  const filteredItems = mediaItems.filter((item) => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = selectedType ? item.fileType === selectedType : true
-    return matchesSearch && matchesType
-  })
+  useEffect(() => {
+    let filtered = mediaItems
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (item) =>
+          item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
+
+    // Apply type filter
+    if (selectedType) {
+      filtered = filtered.filter((item) => item.fileType === selectedType)
+    }
+
+    setFilteredItems(filtered)
+  }, [searchTerm, selectedType, mediaItems])
 
   const toggleItemSelection = (id: string) => {
     if (selectedItems.includes(id)) {
-      setSelectedItems(selectedItems.filter((itemId) => itemId !== id))
+      setSelectedItems(selectedItems.filter((item) => item !== id))
     } else {
       setSelectedItems([...selectedItems, id])
     }
@@ -51,27 +81,67 @@ export function MediaManager() {
     }
   }
 
-  const deleteSelectedItems = () => {
-    if (selectedItems.length === 0) return
+  const deleteItem = async (id: string, filePath?: string, thumbnailPath?: string) => {
+    try {
+      // Construct the URL with query parameters
+      let url = `/api/media/delete?id=${encodeURIComponent(id)}`
+      if (filePath) url += `&filePath=${encodeURIComponent(filePath)}`
+      if (thumbnailPath) url += `&thumbnailPath=${encodeURIComponent(thumbnailPath)}`
 
-    if (confirm(`Tem certeza que deseja excluir ${selectedItems.length} item(s)?`)) {
-      // In a real app, you would call an API to delete the files from the filesystem
-      // For now, we'll just remove them from localStorage
-      const updatedMediaItems = mediaItems.filter((item) => !selectedItems.includes(item.id))
-      setMediaItems(updatedMediaItems)
+      const response = await fetch(url, {
+        method: "DELETE",
+      })
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mediaItems", JSON.stringify(updatedMediaItems))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Delete failed with status: ${response.status}`)
       }
 
+      toast({
+        title: "Success",
+        description: "Item deleted successfully",
+      })
+
+      // Refresh the list
+      fetchMediaItems()
+    } catch (error) {
+      console.error("Error deleting item:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const deleteSelectedItems = async () => {
+    if (selectedItems.length === 0) return
+
+    if (confirm(`Are you sure you want to delete ${selectedItems.length} item(s)?`)) {
+      for (const id of selectedItems) {
+        const item = mediaItems.find((item) => item.id === id)
+        if (item) {
+          await deleteItem(id, item.fileName)
+        }
+      }
       setSelectedItems([])
     }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
 
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold">Gerenciar Mídia</h2>
+        <h2 className="text-xl font-bold">Gerenciar Mídia (Firestore)</h2>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <div className="relative flex-grow">
@@ -109,6 +179,15 @@ export function MediaManager() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button
+            variant="outline"
+            className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
+            onClick={fetchMediaItems}
+            disabled={isLoading}
+          >
+            {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+          </Button>
         </div>
       </div>
 
@@ -116,14 +195,21 @@ export function MediaManager() {
       {selectedItems.length > 0 && (
         <div className="bg-[#252525] p-3 rounded-md mb-6 flex justify-between items-center">
           <span>{selectedItems.length} item(s) selecionado(s)</span>
-          <Button variant="destructive" size="sm" onClick={deleteSelectedItems} className="bg-red-600 hover:bg-red-700">
-            <Trash2 size={16} className="mr-2" />
-            Excluir
-          </Button>
+          <div className="flex items-center">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={deleteSelectedItems}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 size={16} className="mr-2" />
+              Excluir
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Media Table */}
+      {/* Media Items Table */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -145,7 +231,14 @@ export function MediaManager() {
             </tr>
           </thead>
           <tbody>
-            {filteredItems.length > 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-gray-400">
+                  <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
+                  Carregando itens...
+                </td>
+              </tr>
+            ) : filteredItems.length > 0 ? (
               filteredItems.map((item) => (
                 <tr key={item.id} className="border-b border-[#333333] hover:bg-[#252525]">
                   <td className="py-3 px-4">
@@ -160,19 +253,17 @@ export function MediaManager() {
                     <div className="flex items-center">
                       <div className="relative w-12 h-12 mr-3 rounded overflow-hidden">
                         <Image
-                          src={item.thumbnailUrl || "/placeholder.svg"}
+                          src={item.thumbnailUrl || "/placeholder.svg?height=48&width=48"}
                           alt={item.title}
                           width={48}
                           height={48}
                           className="object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg?height=48&width=48"
+                          }}
                         />
-                        {item.fileType === "video" && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                            <Play size={16} className="text-white" />
-                          </div>
-                        )}
                       </div>
-                      <span className="font-medium">{item.title}</span>
+                      <span className="font-medium truncate max-w-[200px]">{item.title}</span>
                     </div>
                   </td>
                   <td className="py-3 px-4">
@@ -186,22 +277,34 @@ export function MediaManager() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
-                      {item.categories.map((category: string, index: number) => (
+                      {item.categories.map((category, index) => (
                         <span key={index} className="px-2 py-0.5 bg-[#d87093]/20 rounded-full text-[#d87093] text-xs">
                           {category}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-gray-400">{new Date(item.dateCreated).toLocaleDateString("pt-BR")}</td>
-                  <td className="py-3 px-4 text-gray-400">{item.views?.toLocaleString() || "0"}</td>
+                  <td className="py-3 px-4 text-gray-400">
+                    {typeof item.dateCreated === "string" ? formatDate(item.dateCreated) : "N/A"}
+                  </td>
+                  <td className="py-3 px-4 text-gray-400">{item.views}</td>
                   <td className="py-3 px-4">
                     <div className="flex space-x-2">
-                      <button className="p-1 text-gray-400 hover:text-white" title="Visualizar">
+                      <a
+                        href={item.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 text-gray-400 hover:text-white"
+                        title="Visualizar"
+                      >
                         <Eye size={18} />
-                      </button>
-                      <button className="p-1 text-gray-400 hover:text-white" title="Editar">
-                        <Edit size={18} />
+                      </a>
+                      <button
+                        onClick={() => deleteItem(item.id, item.fileName)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -210,9 +313,20 @@ export function MediaManager() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="bg-[#252525] border-[#333333] text-white">
-                          <DropdownMenuItem>Duplicar</DropdownMenuItem>
-                          <DropdownMenuItem>Compartilhar</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-400">Excluir</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              navigator.clipboard.writeText(item.fileUrl)
+                              toast({
+                                title: "URL copiada",
+                                description: "URL do item copiada para a área de transferência",
+                              })
+                            }}
+                          >
+                            Copiar URL
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-400" onClick={() => deleteItem(item.id, item.fileName)}>
+                            Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -230,24 +344,10 @@ export function MediaManager() {
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - simplified for this example */}
       <div className="mt-6 flex justify-between items-center">
         <div className="text-sm text-gray-400">
           Mostrando {filteredItems.length} de {mediaItems.length} itens
-        </div>
-
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
-          >
-            Anterior
-          </Button>
-          <Button variant="outline" size="sm" className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]">
-            Próximo
-          </Button>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { deleteMediaItem } from "@/lib/metadata-storage"
-import { deleteFile } from "@/lib/firebase-storage"
+import { deleteMediaItemServer } from "@/lib/server-firestore"
+import { adminStorage } from "@/lib/firebase-admin"
 
 export async function DELETE(request: Request): Promise<NextResponse> {
   try {
@@ -8,6 +8,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     const id = searchParams.get("id")
     const filePath = searchParams.get("filePath")
     const thumbnailPath = searchParams.get("thumbnailPath")
+    const bucketName = "uffa-expence-tracker-app.appspot.com"
 
     if (!id) {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
@@ -15,8 +16,8 @@ export async function DELETE(request: Request): Promise<NextResponse> {
 
     console.log(`API: DELETE /api/media/delete - Deleting media item ${id}`)
 
-    // Delete the media item from metadata
-    const success = await deleteMediaItem(id)
+    // Delete the media item from Firestore
+    const success = await deleteMediaItemServer(id)
 
     if (!success) {
       console.log(`API: DELETE /api/media/delete - Item ${id} not found`)
@@ -29,18 +30,26 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     if (filePath) {
       console.log(`API: DELETE /api/media/delete - Deleting file ${filePath}`)
       deletePromises.push(
-        deleteFile(filePath).catch((error) => {
-          console.error(`Failed to delete file ${filePath}:`, error)
-        }),
+        adminStorage
+          .bucket()
+          .file(filePath)
+          .delete()
+          .catch((error) => {
+            console.error(`Failed to delete file ${filePath}:`, error)
+          }),
       )
     }
 
     if (thumbnailPath) {
       console.log(`API: DELETE /api/media/delete - Deleting thumbnail ${thumbnailPath}`)
       deletePromises.push(
-        deleteFile(thumbnailPath).catch((error) => {
-          console.error(`Failed to delete thumbnail ${thumbnailPath}:`, error)
-        }),
+        adminStorage
+          .bucket()
+          .file(thumbnailPath)
+          .delete()
+          .catch((error) => {
+            console.error(`Failed to delete thumbnail ${thumbnailPath}:`, error)
+          }),
       )
     }
 

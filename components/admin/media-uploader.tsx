@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "@/hooks/use-toast"
-import { uploadFile } from "@/lib/local-storage"
+import { uploadFile } from "@/lib/firebase-storage"
 
 export function MediaUploader() {
   const [mediaType, setMediaType] = useState<"video" | "photo">("video")
@@ -86,7 +86,7 @@ export function MediaUploader() {
       const mediaId = uuidv4()
       const timestamp = Date.now()
 
-      // Upload to server
+      // Upload to Firebase Storage
       console.log("Uploading media file...")
       const folderPath = mediaType === "video" ? "videos" : "photos"
       setUploadProgress(20)
@@ -109,8 +109,8 @@ export function MediaUploader() {
         setUploadProgress(90)
       }
 
-      // Add media to metadata storage
-      console.log("Adding media item to metadata storage...")
+      // Add media to Firestore
+      console.log("Adding media item to Firestore...")
       const response = await fetch("/api/media/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,8 +201,8 @@ export function MediaUploader() {
                 </button>
               </div>
             </div>
+
             {/* Add this UI element for compression quality selection after the Media Type Selection section */}
-            {/* Add this right after the Media Type Selection div */}
             {mediaType === "video" && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Qualidade do Vídeo</label>

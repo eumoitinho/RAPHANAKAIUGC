@@ -5,13 +5,14 @@ import Image from "next/image"
 import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
-import type { MediaMetadata } from "@/lib/metadata-storage"
+import { getAllMediaItems, incrementViews } from "@/lib/firestore-service"
+import type { MediaItem } from "@/lib/firestore-service"
 
 export function Portfolio() {
   const [activeType, setActiveType] = useState("Videos")
   const [activeCategories, setActiveCategories] = useState<string[]>([])
-  const [mediaItems, setMediaItems] = useState<MediaMetadata[]>([])
-  const [filteredItems, setFilteredItems] = useState<MediaMetadata[]>([])
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [filteredItems, setFilteredItems] = useState<MediaItem[]>([])
   const [isPlaying, setIsPlaying] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -23,16 +24,10 @@ export function Portfolio() {
     setIsLoading(true)
     try {
       console.log("Fetching media from API...")
-      const response = await fetch("/api/media")
+      const items = await getAllMediaItems()
+      console.log("Media data received:", items)
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch media: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log("Media data received:", data)
-
-      if (!data.media || data.media.length === 0) {
+      if (!items || items.length === 0) {
         console.warn("No media returned from API or empty array")
         setMediaItems([])
         setFilteredItems([])
@@ -40,11 +35,11 @@ export function Portfolio() {
         return
       }
 
-      setMediaItems(data.media)
+      setMediaItems(items)
 
       // Initial filtering
-      const initialFiltered = data.media.filter(
-        (item: MediaMetadata) => item.fileType === activeType.toLowerCase().slice(0, -1), // Convert "Videos" to "video"
+      const initialFiltered = items.filter(
+        (item: MediaItem) => item.fileType === activeType.toLowerCase().slice(0, -1), // Convert "Videos" to "video"
       )
       console.log("Initial filtered items:", initialFiltered)
       setFilteredItems(initialFiltered)
@@ -118,20 +113,6 @@ export function Portfolio() {
 
       // Increment view count
       incrementViews(id)
-    }
-  }
-
-  const incrementViews = async (id: string) => {
-    try {
-      await fetch("/api/media", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id }),
-      })
-    } catch (error) {
-      console.error("Error incrementing views:", error)
     }
   }
 

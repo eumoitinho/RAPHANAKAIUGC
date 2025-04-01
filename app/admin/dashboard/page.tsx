@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, ImageIcon, Film, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MediaUploader } from "@/components/admin/media-uploader"
-import { BlobManager } from "@/components/admin/blob-manager"
+import { MediaManager } from "@/components/admin/media-manager"
 import { DebugPanel } from "@/components/admin/debug-panel"
 
 export default function AdminDashboard() {
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="manage">
-            <BlobManager />
+            <MediaManager />
           </TabsContent>
         </Tabs>
 

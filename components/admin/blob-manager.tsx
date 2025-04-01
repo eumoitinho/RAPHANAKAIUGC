@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
-import { deleteFile } from "@/lib/local-storage"
+import { deleteFile } from "@/lib/firebase-storage"
+import { ref, listAll, getDownloadURL, getMetadata } from "firebase/storage"
+import { storage } from "@/lib/firebase"
 
 type Blob = {
   url: string
@@ -27,26 +29,78 @@ export function BlobManager() {
   const fetchBlobs = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching files from local storage...")
-      const response = await fetch("/api/local/blobs")
+      console.log("Fetching files from Firebase Storage...")
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to fetch files (${response.status}): ${errorText}`)
+      // Get all files from Firebase Storage
+      const storageRef = ref(storage)
+      const result = await listAll(storageRef)
+
+      // Process the results
+      const blobPromises = result.items.map(async (item) => {
+        try {
+          const url = await getDownloadURL(item)
+          const metadata = await getMetadata(item)
+
+          return {
+            url,
+            pathname: item.fullPath,
+            size: metadata.size || 0,
+            uploadedAt: metadata.timeCreated || new Date().toISOString(),
+          }
+        } catch (error) {
+          console.error(`Error processing item ${item.fullPath}:`, error)
+          return null
+        }
+      })
+
+      // Process directories recursively
+      const processFolders = async (folders) => {
+        for (const folder of folders) {
+          try {
+            const folderContents = await listAll(folder)
+
+            // Process files in this folder
+            const folderBlobPromises = folderContents.items.map(async (item) => {
+              try {
+                const url = await getDownloadURL(item)
+                const metadata = await getMetadata(item)
+
+                return {
+                  url,
+                  pathname: item.fullPath,
+                  size: metadata.size || 0,
+                  uploadedAt: metadata.timeCreated || new Date().toISOString(),
+                }
+              } catch (error) {
+                console.error(`Error processing item ${item.fullPath}:`, error)
+                return null
+              }
+            })
+
+            // Add these promises to our array
+            blobPromises.push(...folderBlobPromises)
+
+            // Process subfolders recursively
+            if (folderContents.prefixes.length > 0) {
+              await processFolders(folderContents.prefixes)
+            }
+          } catch (error) {
+            console.error(`Error processing folder ${folder.fullPath}:`, error)
+          }
+        }
       }
 
-      const data = await response.json()
-      console.log("Files fetched:", data)
+      // Process all folders
+      await processFolders(result.prefixes)
 
-      if (!data.blobs) {
-        console.warn("No files returned from API:", data)
-        setBlobs([])
-        setFilteredBlobs([])
-        return
-      }
+      // Resolve all promises
+      const resolvedBlobs = await Promise.all(blobPromises)
+      const validBlobs = resolvedBlobs.filter((blob) => blob !== null) as Blob[]
 
-      setBlobs(data.blobs)
-      setFilteredBlobs(data.blobs)
+      console.log(`Found ${validBlobs.length} files`)
+
+      setBlobs(validBlobs)
+      setFilteredBlobs(validBlobs)
     } catch (error) {
       console.error("Error fetching files:", error)
       toast({
@@ -167,7 +221,7 @@ export function BlobManager() {
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold">Gerenciar Arquivos (Local Storage)</h2>
+        <h2 className="text-xl font-bold">Gerenciar Arquivos (Firebase Storage)</h2>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <div className="relative flex-grow">

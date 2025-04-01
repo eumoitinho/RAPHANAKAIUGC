@@ -1,69 +1,36 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
-import { addMediaItem } from "@/lib/metadata-storage"
+import { getAllMediaItemsServer } from "@/lib/server-firestore"
 
-export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody
-  console.log("Upload handler: Request received", body.pathname)
-
+export async function GET(): Promise<NextResponse> {
   try {
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async (pathname) => {
-        console.log("Upload handler: Generating token for", pathname)
-        // Extract metadata from the tokenPayload if provided
-        const clientPayload = body.clientPayload ? JSON.parse(body.clientPayload) : {}
-        console.log("Upload handler: Client payload", clientPayload)
+    // Get all media items from Firestore
+    const mediaItems = await getAllMediaItemsServer()
 
-        return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "video/mp4", "video/webm", "video/ogg"],
-          tokenPayload: JSON.stringify({
-            ...clientPayload,
-            timestamp: Date.now(),
-          }),
-        }
+    // Calculate stats
+    const totalVideos = mediaItems.filter((item) => item.fileType === "video").length
+    const totalPhotos = mediaItems.filter((item) => item.fileType === "photo").length
+    const totalViews = mediaItems.reduce((sum, item) => sum + (item.views || 0), 0)
+
+    return NextResponse.json({
+      success: true,
+      metadata: {
+        count: mediaItems.length,
+        videos: totalVideos,
+        photos: totalPhotos,
+        views: totalViews,
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // This callback is called when the upload is completed
-        console.log("Upload handler: Upload completed for", blob.pathname)
-        console.log("Upload handler: Token payload", tokenPayload)
-
-        try {
-          // Parse the token payload to get metadata
-          const payload = JSON.parse(tokenPayload)
-
-          // If this is a media file (not a thumbnail) and has metadata, save it
-          if (payload.metadata && !blob.pathname.includes("thumbnail-")) {
-            console.log("Upload handler: Saving metadata for media file", blob.pathname)
-            const newItem = await addMediaItem({
-              title: payload.metadata.title,
-              description: payload.metadata.description || "",
-              fileUrl: blob.url,
-              thumbnailUrl: payload.thumbnailUrl || "",
-              fileType: payload.metadata.fileType,
-              categories: payload.metadata.categories,
-              fileName: blob.pathname,
-            })
-            console.log("Upload handler: Metadata saved successfully", newItem.id)
-          }
-
-          // If this is a thumbnail, update the corresponding media item
-          if (blob.pathname.includes("thumbnail-") && payload.mediaId) {
-            console.log("Upload handler: This is a thumbnail for media ID", payload.mediaId)
-            // This would be implemented in a real database scenario
-            // For now, we'll handle this in the client-side upload
-          }
-        } catch (error) {
-          console.error("Upload handler: Error in onUploadCompleted:", error)
-        }
+      environment: {
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "uffa-expence-tracker-app",
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "uffa-expence-tracker-app.appspot.com",
+        apiKeyConfigured: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       },
     })
-
-    return NextResponse.json(jsonResponse)
   } catch (error) {
-    console.error("Upload handler: Error handling upload:", error)
-    return NextResponse.json({ error: (error as Error).message }, { status: 400 })
+    console.error("Error in debug endpoint:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error occurred" },
+      { status: 500 },
+    )
   }
 }
 

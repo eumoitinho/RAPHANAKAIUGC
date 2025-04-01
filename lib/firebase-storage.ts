@@ -1,33 +1,31 @@
 "use client"
 
-// Upload a file to local storage via our server API
+import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage"
+import { storage } from "./firebase"
+import { v4 as uuidv4 } from "uuid"
+
+// Upload a file to Firebase Storage
 export async function uploadFile(file: File, path = ""): Promise<{ url: string; path: string }> {
   try {
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("folderPath", path)
+    // Generate a unique filename
+    const fileExtension = file.name.split(".").pop() || ""
+    const uniqueId = uuidv4()
+    const fileName = `${uniqueId}.${fileExtension}`
 
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    })
+    // Create the full path
+    const fullPath = path ? `${path}/${fileName}` : fileName
 
-    // Check if the response is JSON
-    const contentType = response.headers.get("content-type")
-    if (!contentType || !contentType.includes("application/json")) {
-      // If not JSON, get the text and throw a more helpful error
-      const text = await response.text()
-      console.error("Server returned non-JSON response:", text)
-      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
-    }
+    // Create a reference to the file location
+    const storageRef = ref(storage, fullPath)
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `Upload failed with status: ${response.status}`)
-    }
+    // Upload the file
+    const snapshot = await uploadBytes(storageRef, file)
+    console.log("File uploaded successfully:", snapshot)
 
-    const data = await response.json()
-    return { url: data.url, path: data.path }
+    // Get the download URL
+    const url = await getDownloadURL(snapshot.ref)
+
+    return { url, path: fullPath }
   } catch (error) {
     console.error("Error uploading file:", error)
     throw error
@@ -37,23 +35,21 @@ export async function uploadFile(file: File, path = ""): Promise<{ url: string; 
 // List all files in a directory
 export async function listFiles(directory = ""): Promise<{ name: string; url: string; fullPath: string }[]> {
   try {
-    const response = await fetch(`/api/list-files?directory=${encodeURIComponent(directory)}`)
+    const listRef = ref(storage, directory)
+    const res = await listAll(listRef)
 
-    // Check if the response is JSON
-    const contentType = response.headers.get("content-type")
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text()
-      console.error("Server returned non-JSON response:", text)
-      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
-    }
+    const files = await Promise.all(
+      res.items.map(async (itemRef) => {
+        const url = await getDownloadURL(itemRef)
+        return {
+          name: itemRef.name,
+          url,
+          fullPath: itemRef.fullPath,
+        }
+      }),
+    )
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `Listing files failed with status: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.files
+    return files
   } catch (error) {
     console.error("Error listing files:", error)
     throw error
@@ -63,23 +59,8 @@ export async function listFiles(directory = ""): Promise<{ name: string; url: st
 // Delete a file
 export async function deleteFile(filePath: string): Promise<boolean> {
   try {
-    const response = await fetch(`/api/delete-file?path=${encodeURIComponent(filePath)}`, {
-      method: "DELETE",
-    })
-
-    // Check if the response is JSON
-    const contentType = response.headers.get("content-type")
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text()
-      console.error("Server returned non-JSON response:", text)
-      throw new Error(`Server error: Received non-JSON response. Status: ${response.status}`)
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `Deleting file failed with status: ${response.status}`)
-    }
-
+    const fileRef = ref(storage, filePath)
+    await deleteObject(fileRef)
     return true
   } catch (error) {
     console.error("Error deleting file:", error)
@@ -89,7 +70,12 @@ export async function deleteFile(filePath: string): Promise<boolean> {
 
 // Get a file's URL
 export async function getFileUrl(filePath: string): Promise<string> {
-  // For local storage, we can just return the path directly
-  return `/${filePath}`
+  try {
+    const fileRef = ref(storage, filePath)
+    return await getDownloadURL(fileRef)
+  } catch (error) {
+    console.error("Error getting file URL:", error)
+    throw error
+  }
 }
 

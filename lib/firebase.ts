@@ -3,28 +3,31 @@
 import { initializeApp } from "firebase/app"
 import { getFirestore } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
+import { getApp } from "firebase/app"
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyDe8UsqoUitF8Dto0w2X0ZG558YeFIFlrY",
+  authDomain: "uffa-expence-tracker-app.firebaseapp.com",
+  projectId: "uffa-expence-tracker-app",
+  storageBucket: "uffa-expence-tracker-app.appspot.com",
+  messagingSenderId: "148995235844",
+  appId: "1:148995235844:web:aa46075344159f4a879551",
+  measurementId: "G-GV0LRZBCWZ",
 }
 
-// Log the storage bucket to help with debugging
-console.log("Storage Bucket:", process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET)
-
 // Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const clientDb = getFirestore(app)
-const clientStorage = getStorage(app)
+let app
+try {
+  app = getApp()
+} catch (e) {
+  app = initializeApp(firebaseConfig)
+}
 
-export { clientDb, clientStorage, app }
+const db = getFirestore(app)
+const storage = getStorage(app)
 
-// Export storage for use in other files
-export const storage = clientStorage
+const clientStorage = storage
+
+export { db, storage, app, clientStorage }
 
