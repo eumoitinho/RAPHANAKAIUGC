@@ -20,6 +20,7 @@ yarn-error.log*
 
 # env files
 .env*
+/.cert/
 
 # vercel
 .vercel
@@ -28,5 +29,3 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-#json
-uffa-expence-tracker-app-52c615657448.json
