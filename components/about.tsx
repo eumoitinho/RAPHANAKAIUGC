@@ -66,7 +66,7 @@ export function About() {
 
             <div className="space-y-4 text-gray-300">
               <p>
-                Tenho 22 anos e, desde os 15, muito tempo antes de conhecer o termo
+                Tenho 23 anos e, desde os 15, muito tempo antes de conhecer o termo
                 <span className="text-white font-medium"> UGC Creator</span>, eu já tinha uma paixão em gravar e editar
                 vídeos e fotos como hobbie.
               </p>
