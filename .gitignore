@@ -2,8 +2,7 @@
 
 # dependencies
 /node_modules
-/cert
-
+/cert 
 # next.js
 /.next/
 /out/

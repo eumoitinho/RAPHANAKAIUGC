@@ -327,7 +327,7 @@ export function Portfolio() {
                       </div>
 
                       {/* Image Overlay - Always visible on mobile, visible on hover for desktop */}
-                      <div className="absolute inset-0  flex flex-col justify-end p-4">
+                      <div className="absolute inset md:bg-black/30 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                         <div className="bg-black/50 backdrop-blur-sm p-2 rounded">
                           <h3 className="font-medium text-white">{item.title}</h3>
                           {item.description && (
