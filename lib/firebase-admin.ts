@@ -1,52 +1,40 @@
-import { getApps } from "firebase-admin/app"
-import { getFirestore } from "firebase-admin/firestore"
-import { getStorage } from "firebase-admin/storage"
+import { getApps, initializeApp, App } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
-// Initialize Firebase Admin SDK for server-side operations
-const initializeFirebaseAdmin = () => {
+const initializeFirebaseAdmin = (): App => {
   if (getApps().length === 0) {
-    // Use environment variables or service account directly
-    var admin = require("firebase-admin")
-    const serviceAccount = process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY
-
     try {
-      // If we have service account credentials, use them
-      if (admin && serviceAccount) {
-        console.log("Initializing Firebase Admin with service account credentials")
-        return admin.initializeApp({
-          credential: admin.credential.cert({
-            client_email: process.env.FIREBASE_CLIENT_EMAIL,
-            private_key: process.env.FIREBASE_PRIVATE_KEY,
-            project_id: "uffa-expence-tracker-app",
-          }),
-          databaseURL: "https://v0-raphanakaiugc.vercel.app/",
-        })
+      console.log("Initializing Firebase Admin...");
+
+      // Ensure environment variables are properly set
+      if (!process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY || !process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+        throw new Error("Missing Firebase environment variables. Please check your .env file.");
       }
 
-      // Otherwise initialize with just the project ID (works on Vercel with linked Firebase)
-      console.log("Initializing Firebase Admin with application default credentials")
-      return admin.initializeApp({
-        credential: admin.credential.cert({
+      // Initialize Firebase Admin SDK
+      return initializeApp({
+        credential: require("firebase-admin").credential.cert({
           client_email: process.env.FIREBASE_CLIENT_EMAIL,
-          private_key: process.env.FIREBASE_PRIVATE_KEY,
-          project_id: "uffa-expence-tracker-app",
+          private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"), // Replace escaped newlines
+          project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         }),
-        databaseURL: "https://v0-raphanakaiugc.vercel.app/",
-      })
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // Add storage bucket
+      });
     } catch (error) {
-      console.error("Error initializing Firebase Admin:", error)
-      throw error
+      console.error("Error initializing Firebase Admin:", error);
+      throw error;
     }
   }
 
-  return getApps()[0]
-}
+  return getApps()[0];
+};
 
 // Initialize the app
-const app = initializeFirebaseAdmin()
+const app = initializeFirebaseAdmin();
 
 // Get Firestore and Storage instances
-const adminDb = getFirestore(app)
-const adminStorage = getStorage(app)
+const adminDb = getFirestore(app);
+const adminStorage = getStorage(app);
 
-export { adminDb, adminStorage, app }
+export { adminDb, adminStorage, app };
