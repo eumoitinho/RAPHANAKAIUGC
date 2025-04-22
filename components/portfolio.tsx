@@ -21,15 +21,7 @@ export function Portfolio() {
 
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({})
 
-  // Vamos corrigir a lógica de filtragem e renderização das fotos
-  // Primeiro, vamos garantir que a filtragem inicial também funcione corretamente
-
-  // No useEffect que busca os dados, vamos corrigir a filtragem inicial
-  useEffect(() => {
-    fetchMedia()
-  }, [])
-
-  // Vamos corrigir a função fetchMedia para garantir que a filtragem inicial funcione corretamente
+  // Fetch media metadata from the API
   const fetchMedia = async () => {
     setIsLoading(true)
     try {
@@ -52,8 +44,9 @@ export function Portfolio() {
 
       setMediaItems(items)
 
-      // Initial filtering
-      const fileType = activeType.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
+      // Initial filtering - CORREÇÃO: Usar o tipo correto para filtragem
+      // Converter "Videos" para "video" e "Fotos" para "photo"
+      const fileType = activeType === "Videos" ? "video" : "photo"
       console.log(`Initial filtering for type: ${fileType}`)
 
       const initialFiltered = items.filter((item) => {
@@ -78,6 +71,11 @@ export function Portfolio() {
     }
   }
 
+  // Load media data
+  useEffect(() => {
+    fetchMedia()
+  }, [])
+
   // Media types and filtering logic
   const mediaTypes = ["Videos", "Fotos"]
 
@@ -90,7 +88,9 @@ export function Portfolio() {
   }
 
   const filterItems = () => {
-    const fileType = activeType.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
+    // CORREÇÃO: Usar o tipo correto para filtragem
+    // Converter "Videos" para "video" e "Fotos" para "photo"
+    const fileType = activeType === "Videos" ? "video" : "photo"
     let items = mediaItems.filter((item) => item.fileType === fileType)
 
     if (activeCategories.length > 0) {
@@ -100,17 +100,15 @@ export function Portfolio() {
     setFilteredItems(items)
   }
 
-  // Vamos verificar a lógica de filtragem e renderização das fotos
-  // Primeiro, vamos adicionar logs para diagnóstico
-
-  // Na função handleTypeChange, vamos adicionar logs para verificar a filtragem
   const handleTypeChange = (type: string) => {
     setActiveType(type)
     setIsPlaying(null)
     setVisibleItems(6) // Reset pagination when changing type
 
     console.log(`Changing to type: ${type}`)
-    const fileType = type.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
+    // CORREÇÃO: Usar o tipo correto para filtragem
+    // Converter "Videos" para "video" e "Fotos" para "photo"
+    const fileType = type === "Videos" ? "video" : "photo"
     console.log(`Looking for items with fileType: ${fileType}`)
 
     let items = mediaItems.filter((item) => {
