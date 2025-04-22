@@ -87,13 +87,19 @@ export function MediaUploader() {
       const timestamp = Date.now()
 
       // Upload to Firebase Storage
-      console.log("Uploading media file...")
+      console.log("Uploading media file...", {
+        mediaType,
+        mediaFile,
+        fileName: mediaFile.name,
+        fileType: mediaFile.type,
+      })
+
       const folderPath = mediaType === "video" ? "videos" : "photos"
       setUploadProgress(20)
 
+      // Ensure we're passing the correct file and folder path
       const mediaResult = await uploadFile(mediaFile, folderPath)
-
-      console.log("Media uploaded:", mediaResult)
+      console.log("Media upload result:", mediaResult)
       setUploadProgress(70)
 
       // Set thumbnail URL correctly
@@ -110,7 +116,14 @@ export function MediaUploader() {
       }
 
       // Add media to Firestore
-      console.log("Adding media item to Firestore...")
+      console.log("Adding media item to Firestore...", {
+        title,
+        fileType: mediaType, // Garantir que o tipo seja explicitamente definido
+        fileUrl: mediaResult.url,
+        thumbnailUrl: mediaType === "photo" ? mediaResult.url : thumbnailUrl,
+        fileName: mediaResult.path,
+      })
+
       const response = await fetch("/api/media/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,8 +131,8 @@ export function MediaUploader() {
           title,
           description,
           fileUrl: mediaResult.url,
-          thumbnailUrl,
-          fileType: mediaType,
+          thumbnailUrl: mediaType === "photo" ? mediaResult.url : thumbnailUrl,
+          fileType: mediaType, // Garantir que o tipo seja explicitamente definido
           categories: selectedCategories,
           fileName: mediaResult.path,
         }),
@@ -449,4 +462,3 @@ export function MediaUploader() {
     </div>
   )
 }
-

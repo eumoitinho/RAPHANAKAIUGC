@@ -30,4 +30,3 @@ const storage = getStorage(app)
 const clientStorage = storage
 
 export { db, storage, app, clientStorage }
-

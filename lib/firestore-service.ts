@@ -32,6 +32,8 @@ export type MediaItem = {
 
 const MEDIA_COLLECTION = "media"
 
+// Vamos melhorar a função getAllMediaItems para garantir que os tipos de mídia sejam corretamente processados
+
 // Function to get all media items
 export async function getAllMediaItems(): Promise<MediaItem[]> {
   console.log("getAllMediaItems: Fetching from Firestore")
@@ -42,9 +44,18 @@ export async function getAllMediaItems(): Promise<MediaItem[]> {
 
     const mediaItems = snapshot.docs.map((doc) => {
       const data = doc.data()
+
+      // Garantir que o fileType seja uma string válida
+      let fileType = data.fileType
+      if (fileType !== "video" && fileType !== "photo") {
+        console.warn(`Item ${doc.id} has invalid fileType: ${fileType}, defaulting to "photo"`)
+        fileType = "photo"
+      }
+
       return {
         id: doc.id,
         ...data,
+        fileType, // Usar o fileType validado
         dateCreated:
           data.dateCreated instanceof Timestamp
             ? data.dateCreated.toDate().toISOString()
@@ -53,6 +64,12 @@ export async function getAllMediaItems(): Promise<MediaItem[]> {
     })
 
     console.log(`getAllMediaItems: Retrieved ${mediaItems.length} items from Firestore`)
+
+    // Log para diagnóstico
+    const videoCount = mediaItems.filter((item) => item.fileType === "video").length
+    const photoCount = mediaItems.filter((item) => item.fileType === "photo").length
+    console.log(`Items by type: ${videoCount} videos, ${photoCount} photos`)
+
     return mediaItems
   } catch (error) {
     console.error("getAllMediaItems: Firestore error:", error)
@@ -163,4 +180,3 @@ export async function getMediaItemsByCategory(category: string): Promise<MediaIt
     throw error
   }
 }
-

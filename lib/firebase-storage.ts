@@ -78,4 +78,3 @@ export async function getFileUrl(filePath: string): Promise<string> {
     throw error
   }
 }
-

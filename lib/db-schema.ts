@@ -21,4 +21,3 @@ export const mediaStorage = {
   getMedia: async (): Promise<MediaItem[]> => [],
   deleteMedia: async (id: string) => {},
 }
-

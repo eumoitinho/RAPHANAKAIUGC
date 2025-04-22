@@ -97,4 +97,3 @@ export async function addMediaItemServer(item: Omit<MediaItem, "id" | "views" | 
     throw error
   }
 }
-

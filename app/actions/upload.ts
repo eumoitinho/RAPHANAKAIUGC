@@ -18,4 +18,3 @@ export async function uploadFile(formData: FormData) {
 
   return response.json()
 }
-

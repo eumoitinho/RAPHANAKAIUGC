@@ -142,4 +142,3 @@ export function About() {
     </section>
   )
 }
-

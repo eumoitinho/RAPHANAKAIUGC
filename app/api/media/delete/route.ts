@@ -68,4 +68,3 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     )
   }
 }
-

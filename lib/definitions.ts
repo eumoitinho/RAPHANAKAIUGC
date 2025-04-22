@@ -16,4 +16,3 @@ export type Media = {
 
 // In a real app with a proper database, you would use these models
 // for database operations with an ORM like Prisma
-

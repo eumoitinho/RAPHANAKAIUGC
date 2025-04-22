@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app"
+import { getApps } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
 import { getStorage } from "firebase-admin/storage"
 
@@ -6,7 +6,7 @@ import { getStorage } from "firebase-admin/storage"
 const initializeFirebaseAdmin = () => {
   if (getApps().length === 0) {
     // Use environment variables or service account directly
-    var admin = require("firebase-admin");
+    var admin = require("firebase-admin")
     const serviceAccount = process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY
 
     try {
@@ -17,10 +17,10 @@ const initializeFirebaseAdmin = () => {
           credential: admin.credential.cert({
             client_email: process.env.FIREBASE_CLIENT_EMAIL,
             private_key: process.env.FIREBASE_PRIVATE_KEY,
-            project_id: 'uffa-expence-tracker-app'
+            project_id: "uffa-expence-tracker-app",
           }),
-          databaseURL: 'https://v0-raphanakaiugc.vercel.app/'
-        });
+          databaseURL: "https://v0-raphanakaiugc.vercel.app/",
+        })
       }
 
       // Otherwise initialize with just the project ID (works on Vercel with linked Firebase)
@@ -29,10 +29,10 @@ const initializeFirebaseAdmin = () => {
         credential: admin.credential.cert({
           client_email: process.env.FIREBASE_CLIENT_EMAIL,
           private_key: process.env.FIREBASE_PRIVATE_KEY,
-          project_id: 'uffa-expence-tracker-app'
+          project_id: "uffa-expence-tracker-app",
         }),
-        databaseURL: 'https://v0-raphanakaiugc.vercel.app/'
-      });
+        databaseURL: "https://v0-raphanakaiugc.vercel.app/",
+      })
     } catch (error) {
       console.error("Error initializing Firebase Admin:", error)
       throw error
@@ -50,4 +50,3 @@ const adminDb = getFirestore(app)
 const adminStorage = getStorage(app)
 
 export { adminDb, adminStorage, app }
-

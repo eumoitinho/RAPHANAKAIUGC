@@ -19,4 +19,3 @@ export function ensureProjectDirectories() {
     mkdirSync(photosDir, { recursive: true })
   }
 }
-

@@ -16,10 +16,20 @@ export function Portfolio() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [visibleItems, setVisibleItems] = useState<number>(6) // 2 linhas de 3 itens
+  const [hasMore, setHasMore] = useState<boolean>(true)
 
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({})
 
-  // Fetch media metadata from the API
+  // Vamos corrigir a lógica de filtragem e renderização das fotos
+  // Primeiro, vamos garantir que a filtragem inicial também funcione corretamente
+
+  // No useEffect que busca os dados, vamos corrigir a filtragem inicial
+  useEffect(() => {
+    fetchMedia()
+  }, [])
+
+  // Vamos corrigir a função fetchMedia para garantir que a filtragem inicial funcione corretamente
   const fetchMedia = async () => {
     setIsLoading(true)
     try {
@@ -35,14 +45,25 @@ export function Portfolio() {
         return
       }
 
+      // Log dos tipos de mídia para diagnóstico
+      const videoItems = items.filter((item) => item.fileType === "video")
+      const photoItems = items.filter((item) => item.fileType === "photo")
+      console.log(`Found ${videoItems.length} videos and ${photoItems.length} photos`)
+
       setMediaItems(items)
 
       // Initial filtering
-      const initialFiltered = items.filter(
-        (item: MediaItem) => item.fileType === activeType.toLowerCase().slice(0, -1), // Convert "Videos" to "video"
-      )
-      console.log("Initial filtered items:", initialFiltered)
+      const fileType = activeType.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
+      console.log(`Initial filtering for type: ${fileType}`)
+
+      const initialFiltered = items.filter((item) => {
+        console.log(`Item ${item.id} has fileType: ${item.fileType}, comparing with ${fileType}`)
+        return item.fileType === fileType
+      })
+
+      console.log("Initial filtered items:", initialFiltered.length)
       setFilteredItems(initialFiltered)
+      setHasMore(initialFiltered.length > visibleItems)
     } catch (error) {
       console.error("Error fetching media:", error)
       toast({
@@ -56,11 +77,6 @@ export function Portfolio() {
       setIsLoading(false)
     }
   }
-
-  // Load media data
-  useEffect(() => {
-    fetchMedia()
-  }, [])
 
   // Media types and filtering logic
   const mediaTypes = ["Videos", "Fotos"]
@@ -84,18 +100,33 @@ export function Portfolio() {
     setFilteredItems(items)
   }
 
+  // Vamos verificar a lógica de filtragem e renderização das fotos
+  // Primeiro, vamos adicionar logs para diagnóstico
+
+  // Na função handleTypeChange, vamos adicionar logs para verificar a filtragem
   const handleTypeChange = (type: string) => {
     setActiveType(type)
     setIsPlaying(null)
+    setVisibleItems(6) // Reset pagination when changing type
 
+    console.log(`Changing to type: ${type}`)
     const fileType = type.toLowerCase().slice(0, -1) // Convert "Videos" to "video"
-    let items = mediaItems.filter((item) => item.fileType === fileType)
+    console.log(`Looking for items with fileType: ${fileType}`)
+
+    let items = mediaItems.filter((item) => {
+      console.log(`Item ${item.id} has fileType: ${item.fileType}`)
+      return item.fileType === fileType
+    })
+
+    console.log(`Found ${items.length} items of type ${fileType}`)
 
     if (activeCategories.length > 0) {
       items = items.filter((item) => item.categories.some((category) => activeCategories.includes(category)))
+      console.log(`After category filtering: ${items.length} items`)
     }
 
     setFilteredItems(items)
+    setHasMore(items.length > visibleItems)
   }
 
   const togglePlay = (id: string) => {
@@ -129,10 +160,24 @@ export function Portfolio() {
     setIsPlaying(null)
   }
 
+  const loadMoreItems = () => {
+    const newVisibleItems = visibleItems + 6 // Adiciona mais 2 linhas
+    setVisibleItems(newVisibleItems)
+    setHasMore(newVisibleItems < filteredItems.length)
+  }
+
   // Use useEffect to watch activeCategories and filter items
   useEffect(() => {
     filterItems()
+    // Resetar a paginação quando os filtros mudam
+    setVisibleItems(6)
+    setHasMore(filteredItems.length > 6)
   }, [activeCategories])
+
+  // Atualizar hasMore quando filteredItems muda
+  useEffect(() => {
+    setHasMore(filteredItems.length > visibleItems)
+  }, [filteredItems, visibleItems])
 
   // Extract all unique categories from the items
   const allCategories = Array.from(new Set(mediaItems.flatMap((item) => item.categories)))
@@ -151,7 +196,10 @@ export function Portfolio() {
                 className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
                   activeType === type ? "bg-[#d87093] text-white" : "text-gray-400 hover:text-white"
                 }`}
-                onClick={() => handleTypeChange(type)}
+                onClick={() => {
+                  console.log(`Switching to type: ${type}`)
+                  handleTypeChange(type)
+                }}
               >
                 {type}
               </button>
@@ -192,9 +240,8 @@ export function Portfolio() {
         {!isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
+              filteredItems.slice(0, visibleItems).map((item) => (
                 <div key={item.id} className="relative overflow-hidden rounded-lg bg-[#1e1e1e] group">
-                  {console.log("Rendering item:", item.id, item.title, item.fileType)}
                   {item.fileType === "video" ? (
                     <div className="aspect-[9/16] relative">
                       <video
@@ -267,20 +314,22 @@ export function Portfolio() {
                     </div>
                   ) : (
                     <div className="aspect-[9/16] relative">
-                      <Image
-                        src={item.fileUrl || "/placeholder.svg?height=400&width=300"}
-                        alt={item.title}
-                        fill
-                        className="object-cover"
-                        onError={(e) => {
-                          console.error("Image loading error:", e)
-                          // Fallback to placeholder if image fails to load
-                          ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=400&width=300"
-                        }}
-                      />
+                      <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                        <Image
+                          src={item.fileUrl || "/placeholder.svg?height=400&width=300"}
+                          alt={item.title}
+                          fill
+                          className="object-cover"
+                          onError={(e) => {
+                            console.error("Image loading error:", e, item.fileUrl)
+                            // Fallback to placeholder if image fails to load
+                            ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=400&width=300"
+                          }}
+                        />
+                      </div>
 
-                      {/* Image Overlay */}
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                      {/* Image Overlay - Always visible on mobile, visible on hover for desktop */}
+                      <div className="absolute inset-0 bg-black/50 md:bg-black/30 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                         <div className="bg-black/50 backdrop-blur-sm p-2 rounded">
                           <h3 className="font-medium text-white">{item.title}</h3>
                           {item.description && (
@@ -321,13 +370,14 @@ export function Portfolio() {
         )}
 
         {/* Load More Button - Only show if we have items */}
-        {!isLoading && filteredItems.length > 6 && (
+        {!isLoading && hasMore && (
           <div className="flex justify-center mt-12">
-            <Button className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8">Carregar Mais</Button>
+            <Button onClick={loadMoreItems} className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8">
+              Carregar Mais
+            </Button>
           </div>
         )}
       </div>
     </section>
   )
 }
-
