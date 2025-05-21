@@ -48,3 +48,38 @@
     scroll-behavior: smooth;
   }
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatAnimation {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes glowPulse {
+  0% {
+    box-shadow: 0 0 5px rgba(216, 112, 147, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(216, 112, 147, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(216, 112, 147, 0.5);
+  }
+}

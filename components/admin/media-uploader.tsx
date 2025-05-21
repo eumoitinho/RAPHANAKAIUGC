@@ -28,7 +28,7 @@ export function MediaUploader() {
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
-  const categories = ["Wellness", "ADS", "Experiência", "Beauty", "Pet", "Decor", "Receitas", "Moda"]
+  const categories = ["Wellness", "ADS", "Experiência", "Beauty", "Pet", "Decor", "Receitas", "Moda", "Viagem"]
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {

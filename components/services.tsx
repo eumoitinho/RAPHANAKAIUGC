@@ -1,45 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Camera, Palette, Video, Users, PenTool, Lightbulb } from "lucide-react"
-
-const services = [
-  {
-    icon: <Camera className="h-6 w-6" />,
-    title: "Fotografia Editorial",
-    description:
-      "Criação de imagens para editoriais de moda, beleza e lifestyle com foco em contar histórias visuais impactantes.",
-  },
-  {
-    icon: <Palette className="h-6 w-6" />,
-    title: "Direção de Arte",
-    description:
-      "Desenvolvimento de conceitos visuais e direção artística para projetos de moda, publicidade e conteúdo digital.",
-  },
-  {
-    icon: <Video className="h-6 w-6" />,
-    title: "Produção Visual",
-    description: "Produção completa de conteúdo visual para marcas, incluindo fotografia, styling e pós-produção.",
-  },
-  {
-    icon: <Users className="h-6 w-6" />,
-    title: "Campanhas Publicitárias",
-    description:
-      "Criação e execução de campanhas visuais para marcas, com foco em comunicar valores e mensagens de forma autêntica.",
-  },
-  {
-    icon: <PenTool className="h-6 w-6" />,
-    title: "Identidade Visual",
-    description:
-      "Desenvolvimento de identidade visual para marcas e projetos, incluindo logotipos, paletas de cores e diretrizes.",
-  },
-  {
-    icon: <Lightbulb className="h-6 w-6" />,
-    title: "Consultoria Criativa",
-    description:
-      "Consultoria para marcas e profissionais que buscam aprimorar sua comunicação visual e presença de marca.",
-  },
-]
+import { useState, useEffect } from "react"
+import { Camera, Film, Video, Palette, Users, Sparkles } from "lucide-react"
 
 export function Services() {
   const [isVisible, setIsVisible] = useState(false)
@@ -55,7 +17,7 @@ export function Services() {
       { threshold: 0.1 },
     )
 
-    const element = document.getElementById("services-section")
+    const element = document.getElementById("servicos")
     if (element) observer.observe(element)
 
     return () => {
@@ -63,32 +25,65 @@ export function Services() {
     }
   }, [])
 
+  const services = [
+    {
+      icon: <Camera className="h-10 w-10" />,
+      title: "Fotografia",
+      description: "Captação de imagens profissionais para sua marca, produtos ou serviços.",
+    },
+    {
+      icon: <Film className="h-10 w-10" />,
+      title: "Conteúdo para Redes",
+      description: "Criação de conteúdo autêntico e engajante para suas plataformas sociais.",
+    },
+    {
+      icon: <Video className="h-10 w-10" />,
+      title: "Vídeos Promocionais",
+      description: "Produção de vídeos que destacam o melhor da sua marca e produtos.",
+    },
+    {
+      icon: <Palette className="h-10 w-10" />,
+      title: "Direção Criativa",
+      description: "Desenvolvimento de conceitos visuais e narrativas para sua marca.",
+    },
+    {
+      icon: <Users className="h-10 w-10" />,
+      title: "UGC (Conteúdo Gerado pelo Usuário)",
+      description: "Criação de conteúdo autêntico que se conecta com seu público.",
+    },
+    {
+      icon: <Sparkles className="h-10 w-10" />,
+      title: "Edição Profissional",
+      description: "Edição de fotos e vídeos com acabamento profissional e estética única.",
+    },
+  ]
+
   return (
-    <section id="services" className="py-20 bg-[#f8f5f0]">
+    <section id="servicos" className="py-24 bg-[#1e1e1e]">
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-sm uppercase tracking-wider text-[#c17a54] font-medium mb-2">Meus Serviços</h2>
-          <h3 className="text-4xl font-bold mb-6">O que eu ofereço</h3>
-          <p className="text-gray-600">
-            Ofereço uma gama completa de serviços criativos para ajudar marcas e profissionais a comunicarem sua
-            mensagem através de imagens impactantes e narrativas visuais autênticas.
+          <span className="text-[#d87093] uppercase tracking-wider text-sm font-medium">Serviços</span>
+          <h2 className="text-4xl md:text-5xl font-serif italic mt-2 mb-6">O que eu ofereço</h2>
+          <p className="text-white/80 text-lg">
+            Soluções criativas para conectar sua marca com seu público através de conteúdo visual autêntico e
+            impactante.
           </p>
         </div>
 
-        <div id="services-section" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service, index) => (
             <div
               key={index}
-              className={`bg-white p-8 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 ${
+              className={`bg-[#252525] rounded-lg p-6 transition-all duration-500 hover:bg-[#2a2a2a] hover:shadow-lg hover:translate-y-[-4px] transform ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
               }`}
               style={{ transitionDelay: `${index * 100}ms` }}
             >
-              <div className="w-14 h-14 bg-[#ffd9c7] rounded-lg flex items-center justify-center text-[#c17a54] mb-6">
+              <div className="w-16 h-16 bg-[#d87093]/10 rounded-full flex items-center justify-center mb-6 text-[#d87093] animate-[pulse_3s_ease-in-out_infinite]">
                 {service.icon}
               </div>
-              <h4 className="text-xl font-bold mb-3">{service.title}</h4>
-              <p className="text-gray-600">{service.description}</p>
+              <h3 className="text-xl font-medium mb-3">{service.title}</h3>
+              <p className="text-white/70">{service.description}</p>
             </div>
           ))}
         </div>

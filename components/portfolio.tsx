@@ -2,13 +2,48 @@
 
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
-import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw } from "lucide-react"
+import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, Flame } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
 import { getAllMediaItems, incrementViews } from "@/lib/firestore-service"
 import type { MediaItem } from "@/lib/firestore-service"
 
+// Add these keyframes for animations
+const fadeInAnimation = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+`
+
 export function Portfolio() {
+  // Add this line to inject the keyframes
+  useEffect(() => {
+    const style = document.createElement("style")
+    style.textContent = fadeInAnimation
+    document.head.appendChild(style)
+    return () => {
+      document.head.removeChild(style)
+    }
+  }, [])
+
   const [activeType, setActiveType] = useState("Videos")
   const [activeCategories, setActiveCategories] = useState<string[]>([])
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
@@ -18,8 +53,29 @@ export function Portfolio() {
   const [isLoading, setIsLoading] = useState(true)
   const [visibleItems, setVisibleItems] = useState<number>(6) // 2 linhas de 3 itens
   const [hasMore, setHasMore] = useState<boolean>(true)
+  const [isVisible, setIsVisible] = useState(false)
 
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({})
+
+  // Intersection Observer for animation
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 },
+    )
+
+    const element = document.getElementById("projetos")
+    if (element) observer.observe(element)
+
+    return () => {
+      if (element) observer.unobserve(element)
+    }
+  }, [])
 
   // Fetch media metadata from the API
   const fetchMedia = async () => {
@@ -78,6 +134,9 @@ export function Portfolio() {
 
   // Media types and filtering logic
   const mediaTypes = ["Videos", "Fotos"]
+
+  // Original categories
+  const allCategories = ["ADS", "Wellness", "Receitas", "Moda", "Beauty", "Decor", "Experiência", "Pet", "Viagem"]
 
   const toggleCategory = (category: string) => {
     if (activeCategories.includes(category)) {
@@ -177,22 +236,33 @@ export function Portfolio() {
     setHasMore(filteredItems.length > visibleItems)
   }, [filteredItems, visibleItems])
 
-  // Extract all unique categories from the items
-  const allCategories = Array.from(new Set(mediaItems.flatMap((item) => item.categories)))
+  // Find the most viewed item
+  const getMostViewedItem = (items: MediaItem[]) => {
+    if (!items || items.length === 0) return null
+    return items.reduce((prev, current) => (prev.views > current.views ? prev : current))
+  }
+
+  const mostViewedItem = getMostViewedItem(filteredItems)
 
   return (
     <section id="projetos" className="py-24 bg-[#121212]">
       <div className="container mx-auto px-4 md:px-6">
-        <h2 className="text-4xl font-serif italic mb-16 text-center text-[#d87093]">Portfolio</h2>
+        <h2 className="text-4xl font-serif italic mb-16 text-center text-[#d87093] animate-[fadeIn_0.5s_ease-in-out]">
+          Portfolio
+        </h2>
 
         {/* Media Type Tabs */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex bg-[#1e1e1e] rounded-full p-1">
+        <div
+          className={`flex justify-center mb-8 transition-all duration-1000 transform ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+          }`}
+        >
+          <div className="inline-flex bg-[#1e1e1e] rounded-full p-1 shadow-md">
             {mediaTypes.map((type) => (
               <button
                 key={type}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
-                  activeType === type ? "bg-[#d87093] text-white" : "text-gray-400 hover:text-white"
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  activeType === type ? "bg-[#d87093] text-white shadow-md" : "text-gray-400 hover:text-white"
                 }`}
                 onClick={() => {
                   console.log(`Switching to type: ${type}`)
@@ -206,25 +276,28 @@ export function Portfolio() {
         </div>
 
         {/* Categories */}
-        {allCategories.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 mb-12">
-            {allCategories.map((category) => (
-              <button
-                key={category}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                  activeCategories.includes(category)
-                    ? "bg-[#d87093] text-white border-[#d87093]"
-                    : "bg-transparent text-gray-400 border-gray-700 hover:border-gray-500"
-                }`}
-                onClick={() => {
-                  toggleCategory(category)
-                }}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        )}
+        <div
+          className={`flex flex-wrap justify-center gap-2 mb-12 transition-all duration-1000 delay-200 transform ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+          }`}
+        >
+          {allCategories.map((category, index) => (
+            <button
+              key={category}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
+                activeCategories.includes(category)
+                  ? "bg-[#d87093] text-white border-[#d87093] shadow-md"
+                  : "bg-transparent text-gray-400 border-gray-700 hover:border-gray-500 hover:text-white"
+              }`}
+              style={{ animationDelay: `${index * 50}ms` }}
+              onClick={() => {
+                toggleCategory(category)
+              }}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
 
         {/* Loading State */}
         {isLoading && (
@@ -236,10 +309,21 @@ export function Portfolio() {
 
         {/* Portfolio Grid */}
         {!isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-1000 delay-400 transform ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+            }`}
+          >
             {filteredItems.length > 0 ? (
-              filteredItems.slice(0, visibleItems).map((item) => (
-                <div key={item.id} className="relative overflow-hidden rounded-lg bg-[#1e1e1e] group">
+              filteredItems.slice(0, visibleItems).map((item, index) => (
+                <div
+                  key={item.id}
+                  className="relative overflow-hidden rounded-lg bg-[#1e1e1e] group shadow-md hover:shadow-lg transition-all duration-500 hover:translate-y-[-4px]"
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                    animation: `fadeIn 0.5s ease-in-out ${index * 100}ms both`,
+                  }}
+                >
                   {item.fileType === "video" ? (
                     <div className="aspect-[9/16] relative">
                       <video
@@ -251,23 +335,31 @@ export function Portfolio() {
                         muted={isMuted}
                         loop
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         onEnded={handleVideoEnded}
                         onError={(e) => console.error("Video loading error:", e, item.fileUrl)}
                       />
 
-                      {/* Video Controls */}
-                      <div className="absolute inset-0 flex flex-col justify-between p-4">
+                      {/* Most viewed badge */}
+                      {mostViewedItem && mostViewedItem.id === item.id && (
+                        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full flex items-center gap-1 z-20 animate-pulse">
+                          <Flame size={14} className="animate-pulse" />
+                          <span className="text-xs font-medium">Mais visto</span>
+                        </div>
+                      )}
+
+                      {/* Video Controls - Always visible */}
+                      <div className="absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-b from-black/40 via-transparent to-black/70">
                         {/* Top controls */}
                         <div className="flex justify-between items-start">
-                          <div className="bg-black/50 backdrop-blur-sm px-2 py-1 rounded text-xs">
+                          <div className="bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
                             {item.views} views
                           </div>
 
                           <div className="flex space-x-2">
                             <button
                               onClick={toggleMute}
-                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
+                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
                             >
                               {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                             </button>
@@ -276,7 +368,7 @@ export function Portfolio() {
                               href={item.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
+                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
                             >
                               <Maximize size={16} />
                             </a>
@@ -286,18 +378,18 @@ export function Portfolio() {
                         {/* Center play button */}
                         <button
                           onClick={() => togglePlay(item.id)}
-                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center rounded-full bg-[#d87093]/80 text-white hover:bg-[#d87093] transition-colors"
+                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center rounded-full bg-[#d87093]/80 text-white hover:bg-[#d87093] transition-all duration-300 hover:scale-110 group-hover:animate-pulse"
                         >
                           {isPlaying === item.id ? <Pause size={24} /> : <Play size={24} />}
                         </button>
 
-                        {/* Bottom info */}
-                        <div className="bg-black/50 backdrop-blur-sm p-2 rounded">
+                        {/* Bottom info - Always visible */}
+                        <div className="bg-black/60 backdrop-blur-sm p-3 rounded">
                           <h3 className="font-medium text-white">{item.title}</h3>
                           {item.description && (
                             <p className="text-sm text-gray-300 mt-1 line-clamp-2">{item.description}</p>
                           )}
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <div className="flex flex-wrap gap-1 mt-2">
                             {item.categories.map((cat) => (
                               <span
                                 key={cat}
@@ -317,7 +409,7 @@ export function Portfolio() {
                           src={item.fileUrl || "/placeholder.svg?height=400&width=300"}
                           alt={item.title}
                           fill
-                          className="object-cover"
+                          className="object-cover transition-transform duration-700 group-hover:scale-105"
                           onError={(e) => {
                             console.error("Image loading error:", e, item.fileUrl)
                             // Fallback to placeholder if image fails to load
@@ -326,14 +418,27 @@ export function Portfolio() {
                         />
                       </div>
 
-                      {/* Image Overlay - Always visible on mobile, visible on hover for desktop */}
-                      <div className="absolute inset md:bg-black/30 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                        <div className="bg-black/50 backdrop-blur-sm p-2 rounded">
+                      {/* Most viewed badge */}
+                      {mostViewedItem && mostViewedItem.id === item.id && (
+                        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full flex items-center gap-1 z-20 animate-pulse">
+                          <Flame size={14} className="animate-pulse" />
+                          <span className="text-xs font-medium">Mais visto</span>
+                        </div>
+                      )}
+
+                      {/* Views counter */}
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
+                        {item.views} views
+                      </div>
+
+                      {/* Image Overlay - Always visible */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 flex flex-col justify-end p-4">
+                        <div className="bg-black/60 backdrop-blur-sm p-3 rounded">
                           <h3 className="font-medium text-white">{item.title}</h3>
                           {item.description && (
                             <p className="text-sm text-gray-300 mt-1 line-clamp-2">{item.description}</p>
                           )}
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <div className="flex flex-wrap gap-1 mt-2">
                             {item.categories.map((cat) => (
                               <span
                                 key={cat}
@@ -369,8 +474,15 @@ export function Portfolio() {
 
         {/* Load More Button - Only show if we have items */}
         {!isLoading && hasMore && (
-          <div className="flex justify-center mt-12">
-            <Button onClick={loadMoreItems} className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8">
+          <div
+            className={`flex justify-center mt-12 transition-all duration-1000 delay-600 transform ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+            }`}
+          >
+            <Button
+              onClick={loadMoreItems}
+              className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8 py-6 text-lg transition-all duration-500 hover:shadow-lg hover:scale-105 "
+            >
               Carregar Mais
             </Button>
           </div>
