@@ -5,9 +5,9 @@ import { AdminLayout } from "@/components/admin/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, ImageIcon, Film, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MediaUploader } from "@/components/admin/media-uploader"
+import { EnhancedMediaUploader } from "@/components/admin/enhanced-media-uploader"
 import { MediaManager } from "@/components/admin/media-manager"
-import { DebugPanel } from "@/components/admin/debug-panel"
+import { MigrationPanel } from "@/components/admin/migration-panel"
 
 export default function AdminDashboard() {
   const [mediaStats, setMediaStats] = useState({
@@ -24,10 +24,10 @@ export default function AdminDashboard() {
         if (response.ok) {
           const data = await response.json()
           setMediaStats({
-            totalMedia: data.metadata.count,
-            totalVideos: data.metadata.videos,
-            totalPhotos: data.metadata.photos,
-            totalViews: data.metadata.views,
+            totalMedia: data.metadata.totalMedia,
+            totalVideos: data.metadata.totalVideos,
+            totalPhotos: data.metadata.totalPhotos,
+            totalViews: data.metadata.totalViews,
           })
         } else {
           console.error("Failed to fetch stats:", await response.text())
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <h1 className="text-2xl font-bold mb-6">Dashboard - Sistema MongoDB + VPS</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-[#1e1e1e] border-[#333333]">
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mediaStats.totalMedia}</div>
-              <p className="text-xs text-gray-400 mt-1">Itens no portfólio</p>
+              <p className="text-xs text-gray-400 mt-1">Itens otimizados</p>
             </CardContent>
           </Card>
 
@@ -64,7 +64,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mediaStats.totalVideos}</div>
-              <p className="text-xs text-gray-400 mt-1">Vídeos publicados</p>
+              <p className="text-xs text-gray-400 mt-1">Vídeos comprimidos</p>
             </CardContent>
           </Card>
 
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{mediaStats.totalPhotos}</div>
-              <p className="text-xs text-gray-400 mt-1">Fotos publicadas</p>
+              <p className="text-xs text-gray-400 mt-1">Fotos otimizadas</p>
             </CardContent>
           </Card>
 
@@ -93,20 +93,23 @@ export default function AdminDashboard() {
 
         <Tabs defaultValue="upload" className="space-y-6">
           <TabsList className="bg-[#1e1e1e]">
-            <TabsTrigger value="upload">Upload de Mídia</TabsTrigger>
+            <TabsTrigger value="upload">Upload Otimizado</TabsTrigger>
             <TabsTrigger value="manage">Gerenciar Arquivos</TabsTrigger>
+            <TabsTrigger value="migrate">Migração Firebase</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upload">
-            <MediaUploader />
+            <EnhancedMediaUploader />
           </TabsContent>
 
           <TabsContent value="manage">
             <MediaManager />
           </TabsContent>
-        </Tabs>
 
-        <DebugPanel />
+          <TabsContent value="migrate">
+            <MigrationPanel />
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   )

@@ -1,70 +1,53 @@
-import { NextResponse } from "next/server"
-import { deleteMediaItemServer } from "@/lib/server-firestore"
-import { adminStorage } from "@/lib/firebase-admin"
+import { NextResponse } from 'next/server'
+import { MediaService } from '@/lib/media-service'
+import { unlink } from 'fs/promises'
+import path from 'path'
 
-export async function DELETE(request: Request): Promise<NextResponse> {
+const mediaService = new MediaService()
+
+export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
-    const filePath = searchParams.get("filePath")
-    const thumbnailPath = searchParams.get("thumbnailPath")
-    const bucketName = "uffa-expence-tracker-app.appspot.com"
+    const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
+      return NextResponse.json({ error: 'Media ID is required' }, { status: 400 })
     }
 
-    console.log(`API: DELETE /api/media/delete - Deleting media item ${id}`)
+    // Buscar item para obter caminhos dos arquivos
+    const mediaItem = await mediaService.getMediaById(id)
+    
+    if (!mediaItem) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    }
 
-    // Delete the media item from Firestore
-    const success = await deleteMediaItemServer(id)
+    // Deletar arquivos do sistema de arquivos
+    try {
+      const filePath = path.join(process.cwd(), 'public', mediaItem.fileUrl)
+      await unlink(filePath)
+
+      if (mediaItem.thumbnailUrl && mediaItem.thumbnailUrl !== mediaItem.fileUrl) {
+        const thumbnailPath = path.join(process.cwd(), 'public', mediaItem.thumbnailUrl)
+        await unlink(thumbnailPath)
+      }
+    } catch (fileError) {
+      console.error('Error deleting files:', fileError)
+      // Continue mesmo se não conseguir deletar os arquivos
+    }
+
+    // Deletar do banco de dados
+    const success = await mediaService.deleteMedia(id)
 
     if (!success) {
-      console.log(`API: DELETE /api/media/delete - Item ${id} not found`)
-      return NextResponse.json({ error: "Media not found" }, { status: 404 })
+      return NextResponse.json({ error: 'Failed to delete from database' }, { status: 500 })
     }
 
-    // Try to delete the actual files from Firebase Storage if paths are provided
-    const deletePromises = []
-
-    if (filePath) {
-      console.log(`API: DELETE /api/media/delete - Deleting file ${filePath}`)
-      deletePromises.push(
-        adminStorage
-          .bucket()
-          .file(filePath)
-          .delete()
-          .catch((error) => {
-            console.error(`Failed to delete file ${filePath}:`, error)
-          }),
-      )
-    }
-
-    if (thumbnailPath) {
-      console.log(`API: DELETE /api/media/delete - Deleting thumbnail ${thumbnailPath}`)
-      deletePromises.push(
-        adminStorage
-          .bucket()
-          .file(thumbnailPath)
-          .delete()
-          .catch((error) => {
-            console.error(`Failed to delete thumbnail ${thumbnailPath}:`, error)
-          }),
-      )
-    }
-
-    // Wait for all delete operations to complete
-    if (deletePromises.length > 0) {
-      await Promise.all(deletePromises)
-    }
-
-    console.log(`API: DELETE /api/media/delete - Successfully deleted item ${id}`)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting media item:", error)
+    console.error('Error deleting media:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error occurred" },
-      { status: 500 },
+      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { status: 500 }
     )
   }
 }

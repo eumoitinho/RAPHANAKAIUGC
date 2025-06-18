@@ -1,35 +1,26 @@
-import { NextResponse } from "next/server"
-import { getAllMediaItemsServer } from "@/lib/server-firestore"
+import { NextResponse } from 'next/server'
+import { MediaService } from '@/lib/media-service'
 
-export async function GET(): Promise<NextResponse> {
+const mediaService = new MediaService()
+
+export async function GET() {
   try {
-    // Get all media items from Firestore
-    const mediaItems = await getAllMediaItemsServer()
-
-    // Calculate stats
-    const totalVideos = mediaItems.filter((item) => item.fileType === "video").length
-    const totalPhotos = mediaItems.filter((item) => item.fileType === "photo").length
-    const totalViews = mediaItems.reduce((sum, item) => sum + (item.views || 0), 0)
-
+    const stats = await mediaService.getMediaStats()
+    
     return NextResponse.json({
       success: true,
-      metadata: {
-        count: mediaItems.length,
-        videos: totalVideos,
-        photos: totalPhotos,
-        views: totalViews,
-      },
+      metadata: stats,
       environment: {
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "uffa-expence-tracker-app",
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "uffa-expence-tracker-app.appspot.com",
-        apiKeyConfigured: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        database: 'MongoDB',
+        storage: 'VPS Local Storage',
+        mongoUri: process.env.MONGODB_URI ? 'Configured' : 'Not configured',
       },
     })
   } catch (error) {
-    console.error("Error in debug endpoint:", error)
+    console.error('Error in debug endpoint:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error occurred" },
-      { status: 500 },
+      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { status: 500 }
     )
   }
 }
