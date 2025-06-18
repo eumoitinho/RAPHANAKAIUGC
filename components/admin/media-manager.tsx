@@ -7,8 +7,21 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
-import { getAllMediaItems } from "@/lib/firestore-service"
-import type { MediaItem } from "@/lib/firestore-service"
+
+type MediaItem = {
+  id: string
+  title: string
+  description: string
+  fileUrl: string
+  thumbnailUrl: string
+  fileType: "video" | "photo"
+  categories: string[]
+  dateCreated: string
+  views: number
+  fileName?: string
+  fileSize?: number
+  optimized?: boolean
+}
 
 export function MediaManager() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
@@ -21,8 +34,16 @@ export function MediaManager() {
   const fetchMediaItems = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching media items from Firestore...")
-      const items = await getAllMediaItems()
+      console.log("Fetching media items from MongoDB...")
+      const response = await fetch("/api/media")
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const items = data.media || []
+      
       console.log(`Found ${items.length} media items`)
       setMediaItems(items)
       setFilteredItems(items)
@@ -81,14 +102,9 @@ export function MediaManager() {
     }
   }
 
-  const deleteItem = async (id: string, filePath?: string, thumbnailPath?: string) => {
+  const deleteItem = async (id: string) => {
     try {
-      // Construct the URL with query parameters
-      let url = `/api/media/delete?id=${encodeURIComponent(id)}`
-      if (filePath) url += `&filePath=${encodeURIComponent(filePath)}`
-      if (thumbnailPath) url += `&thumbnailPath=${encodeURIComponent(thumbnailPath)}`
-
-      const response = await fetch(url, {
+      const response = await fetch(`/api/media/delete?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       })
 
@@ -119,10 +135,7 @@ export function MediaManager() {
 
     if (confirm(`Are you sure you want to delete ${selectedItems.length} item(s)?`)) {
       for (const id of selectedItems) {
-        const item = mediaItems.find((item) => item.id === id)
-        if (item) {
-          await deleteItem(id, item.fileName)
-        }
+        await deleteItem(id)
       }
       setSelectedItems([])
     }
@@ -138,10 +151,18 @@ export function MediaManager() {
     })
   }
 
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "N/A"
+    if (bytes < 1024) return bytes + " B"
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB"
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + " MB"
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB"
+  }
+
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold">Gerenciar Mídia (Firestore)</h2>
+        <h2 className="text-xl font-bold">Gerenciar Mídia (MongoDB + VPS)</h2>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <div className="relative flex-grow">
@@ -224,6 +245,7 @@ export function MediaManager() {
               </th>
               <th className="py-3 px-4 text-left">Mídia</th>
               <th className="py-3 px-4 text-left">Tipo</th>
+              <th className="py-3 px-4 text-left">Tamanho</th>
               <th className="py-3 px-4 text-left">Categorias</th>
               <th className="py-3 px-4 text-left">Data</th>
               <th className="py-3 px-4 text-left">Visualizações</th>
@@ -233,7 +255,7 @@ export function MediaManager() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-400">
+                <td colSpan={8} className="py-8 text-center text-gray-400">
                   <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                   Carregando itens...
                 </td>
@@ -263,7 +285,12 @@ export function MediaManager() {
                           }}
                         />
                       </div>
-                      <span className="font-medium truncate max-w-[200px]">{item.title}</span>
+                      <div>
+                        <span className="font-medium truncate max-w-[200px] block">{item.title}</span>
+                        {item.optimized && (
+                          <span className="text-xs text-green-400">✓ Otimizado</span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 px-4">
@@ -275,6 +302,7 @@ export function MediaManager() {
                       {item.fileType === "video" ? "Vídeo" : "Foto"}
                     </span>
                   </td>
+                  <td className="py-3 px-4 text-gray-400">{formatFileSize(item.fileSize)}</td>
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
                       {item.categories.map((category, index) => (
@@ -300,7 +328,7 @@ export function MediaManager() {
                         <Eye size={18} />
                       </a>
                       <button
-                        onClick={() => deleteItem(item.id, item.fileName)}
+                        onClick={() => deleteItem(item.id)}
                         className="p-1 text-gray-400 hover:text-red-500"
                         title="Excluir"
                       >
@@ -324,7 +352,7 @@ export function MediaManager() {
                           >
                             Copiar URL
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-400" onClick={() => deleteItem(item.id, item.fileName)}>
+                          <DropdownMenuItem className="text-red-400" onClick={() => deleteItem(item.id)}>
                             Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -335,7 +363,7 @@ export function MediaManager() {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-400">
+                <td colSpan={8} className="py-8 text-center text-gray-400">
                   Nenhum resultado encontrado
                 </td>
               </tr>

@@ -5,8 +5,6 @@ import Image from "next/image"
 import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, Flame } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
-import { getAllMediaItems, incrementViews } from "@/lib/firestore-service"
-import type { MediaItem } from "@/lib/firestore-service"
 
 // Add these keyframes for animations
 const fadeInAnimation = `
@@ -33,6 +31,20 @@ const fadeInAnimation = `
   }
 `
 
+// Define MediaItem type locally
+type MediaItem = {
+  id: string
+  title: string
+  description: string
+  fileUrl: string
+  thumbnailUrl: string
+  fileType: "video" | "photo"
+  categories: string[]
+  dateCreated: string
+  views: number
+  fileName?: string
+}
+
 export function Portfolio() {
   // Add this line to inject the keyframes
   useEffect(() => {
@@ -51,7 +63,7 @@ export function Portfolio() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [visibleItems, setVisibleItems] = useState<number>(6) // 2 linhas de 3 itens
+  const [visibleItems, setVisibleItems] = useState<number>(6)
   const [hasMore, setHasMore] = useState<boolean>(true)
   const [isVisible, setIsVisible] = useState(false)
 
@@ -82,7 +94,15 @@ export function Portfolio() {
     setIsLoading(true)
     try {
       console.log("Fetching media from API...")
-      const items = await getAllMediaItems()
+      const response = await fetch("/api/media")
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const items = data.media || []
+      
       console.log("Media data received:", items)
 
       if (!items || items.length === 0) {
@@ -94,8 +114,8 @@ export function Portfolio() {
       }
 
       // Log dos tipos de mídia para diagnóstico
-      const videoItems = items.filter((item) => item.fileType === "video")
-      const photoItems = items.filter((item) => item.fileType === "photo")
+      const videoItems = items.filter((item: MediaItem) => item.fileType === "video")
+      const photoItems = items.filter((item: MediaItem) => item.fileType === "photo")
       console.log(`Found ${videoItems.length} videos and ${photoItems.length} photos`)
 
       setMediaItems(items)
@@ -105,7 +125,7 @@ export function Portfolio() {
       const fileType = activeType === "Videos" ? "video" : "photo"
       console.log(`Initial filtering for type: ${fileType}`)
 
-      const initialFiltered = items.filter((item) => {
+      const initialFiltered = items.filter((item: MediaItem) => {
         console.log(`Item ${item.id} has fileType: ${item.fileType}, comparing with ${fileType}`)
         return item.fileType === fileType
       })
@@ -186,7 +206,7 @@ export function Portfolio() {
     setHasMore(items.length > visibleItems)
   }
 
-  const togglePlay = (id: string) => {
+  const togglePlay = async (id: string) => {
     if (isPlaying === id) {
       videoRefs.current[id].pause()
       setIsPlaying(null)
@@ -200,7 +220,17 @@ export function Portfolio() {
       setIsPlaying(id)
 
       // Increment view count
-      incrementViews(id)
+      try {
+        await fetch("/api/media", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id }),
+        })
+      } catch (error) {
+        console.error("Error incrementing views:", error)
+      }
     }
   }
 
