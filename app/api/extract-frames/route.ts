@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MediaProcessor } from '@/lib/media-processor'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,16 +9,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No video file provided' }, { status: 400 })
     }
 
-    const processor = new MediaProcessor()
-    
-    // Salvar vídeo temporariamente para extrair frames
-    const buffer = Buffer.from(await videoFile.arrayBuffer())
-    const tempPath = `/tmp/${Date.now()}_${videoFile.name}`
-    
-    // Em produção, você salvaria o arquivo no sistema de arquivos
-    // Por agora, vamos simular a extração de frames
-    
-    const frames = await processor.extractVideoFrames(tempPath, 6)
+    // Simulação de extração de frames
+    // Para implementação real, use FFmpeg
+    const frames = [
+      { timestamp: 5, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame1' },
+      { timestamp: 15, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame2' },
+      { timestamp: 25, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame3' },
+      { timestamp: 35, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame4' },
+      { timestamp: 45, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame5' },
+      { timestamp: 55, frameUrl: '/placeholder.svg?height=120&width=68&text=Frame6' },
+    ]
     
     return NextResponse.json({ frames })
   } catch (error) {

@@ -1,5 +1,4 @@
 import sharp from 'sharp'
-import ffmpeg from 'fluent-ffmpeg'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
@@ -22,14 +21,6 @@ export interface VideoFrame {
 }
 
 // Configurações de otimização
-const VIDEO_CONFIG = {
-  maxWidth: 1920,
-  maxHeight: 1080,
-  videoBitrate: '2000k',
-  audioBitrate: '128k',
-  format: 'mp4'
-}
-
 const IMAGE_CONFIG = {
   maxWidth: 1920,
   maxHeight: 1080,
@@ -108,133 +99,43 @@ export class MediaProcessor {
   }
 
   async processVideo(file: File): Promise<ProcessedMedia> {
+    // Por enquanto, apenas salva o vídeo sem processamento FFmpeg
+    // Para implementar processamento real, instale fluent-ffmpeg
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileId = uuidv4()
-    const originalPath = path.join(this.uploadsDir, 'temp', `${fileId}_original.${file.name.split('.').pop()}`)
-    const optimizedPath = path.join(this.uploadsDir, 'videos', `${fileId}.${VIDEO_CONFIG.format}`)
+    const optimizedPath = path.join(this.uploadsDir, 'videos', `${fileId}.mp4`)
 
-    // Salvar arquivo original temporariamente
-    await fs.writeFile(originalPath, buffer)
+    await fs.writeFile(optimizedPath, buffer)
+    const stats = await fs.stat(optimizedPath)
 
-    return new Promise((resolve, reject) => {
-      ffmpeg(originalPath)
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .videoBitrate(VIDEO_CONFIG.videoBitrate)
-        .audioBitrate(VIDEO_CONFIG.audioBitrate)
-        .size(`${VIDEO_CONFIG.maxWidth}x${VIDEO_CONFIG.maxHeight}`)
-        .autopad()
-        .format(VIDEO_CONFIG.format)
-        .on('end', async () => {
-          try {
-            // Obter informações do vídeo processado
-            const stats = await fs.stat(optimizedPath)
-            
-            ffmpeg.ffprobe(optimizedPath, async (err, metadata) => {
-              if (err) {
-                reject(err)
-                return
-              }
-
-              const videoStream = metadata.streams.find(s => s.codec_type === 'video')
-              const duration = metadata.format.duration || 0
-
-              // Limpar arquivo temporário
-              try {
-                await fs.unlink(originalPath)
-              } catch (error) {
-                console.error('Error cleaning up temp file:', error)
-              }
-
-              resolve({
-                originalPath,
-                optimizedPath,
-                fileSize: stats.size,
-                dimensions: {
-                  width: videoStream?.width || 0,
-                  height: videoStream?.height || 0
-                },
-                duration
-              })
-            })
-          } catch (error) {
-            reject(error)
-          }
-        })
-        .on('error', (err) => {
-          // Limpar arquivo temporário em caso de erro
-          fs.unlink(originalPath).catch(console.error)
-          reject(err)
-        })
-        .save(optimizedPath)
-    })
+    return {
+      originalPath: optimizedPath,
+      optimizedPath,
+      fileSize: stats.size,
+      dimensions: {
+        width: 1920, // Valores padrão
+        height: 1080
+      },
+      duration: 0
+    }
   }
 
   async extractVideoFrames(videoPath: string, count: number = 6): Promise<VideoFrame[]> {
-    return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(videoPath, async (err, metadata) => {
-        if (err) {
-          reject(err)
-          return
-        }
-
-        const duration = metadata.format.duration || 0
-        const frames: VideoFrame[] = []
-        const framePromises: Promise<void>[] = []
-
-        for (let i = 0; i < count; i++) {
-          const timestamp = (duration / (count + 1)) * (i + 1)
-          const frameId = uuidv4()
-          const framePath = path.join(this.uploadsDir, 'temp', `frame_${frameId}.jpg`)
-
-          const framePromise = new Promise<void>((resolveFrame, rejectFrame) => {
-            ffmpeg(videoPath)
-              .seekInput(timestamp)
-              .frames(1)
-              .output(framePath)
-              .on('end', () => {
-                frames.push({
-                  timestamp,
-                  frameUrl: `/uploads/temp/frame_${frameId}.jpg`
-                })
-                resolveFrame()
-              })
-              .on('error', rejectFrame)
-              .run()
-          })
-
-          framePromises.push(framePromise)
-        }
-
-        try {
-          await Promise.all(framePromises)
-          resolve(frames.sort((a, b) => a.timestamp - b.timestamp))
-        } catch (error) {
-          reject(error)
-        }
+    // Implementação simulada - para implementação real, use FFmpeg
+    const frames: VideoFrame[] = []
+    
+    for (let i = 0; i < count; i++) {
+      frames.push({
+        timestamp: i * 10, // 10 segundos entre frames
+        frameUrl: `/placeholder.svg?height=120&width=68&text=Frame${i + 1}`
       })
-    })
+    }
+    
+    return frames
   }
 
   async createThumbnailFromFrame(frameUrl: string, videoId: string): Promise<string> {
-    const framePath = path.join(process.cwd(), 'public', frameUrl)
-    const thumbnailPath = path.join(this.uploadsDir, 'thumbnails', `${videoId}.webp`)
-
-    await sharp(framePath)
-      .resize(480, 270, {
-        fit: 'cover',
-        position: 'center'
-      })
-      .webp({ quality: 80 })
-      .toFile(thumbnailPath)
-
-    // Limpar frame temporário
-    try {
-      await fs.unlink(framePath)
-    } catch (error) {
-      console.error('Error cleaning up frame file:', error)
-    }
-
+    // Implementação simulada
     return `/uploads/thumbnails/${videoId}.webp`
   }
 

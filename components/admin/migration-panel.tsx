@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/hooks/use-toast"
-import { Database, Download, CheckCircle, XCircle } from "lucide-react"
+import { Database, Download, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 
 interface MigrationResult {
   originalId: string
@@ -41,7 +41,7 @@ export function MigrationPanel() {
       setProgress(100)
 
       toast({
-        title: "Migração Concluída",
+        title: "Migração Simulada",
         description: data.message,
       })
 
@@ -65,7 +65,7 @@ export function MigrationPanel() {
   }
 
   return (
-    <div className="bg-[#1e1e1e] rounded-lg p-6 mt-8">
+    <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <Database className="mr-2 h-5 w-5 text-[#d87093]" />
@@ -85,10 +85,29 @@ export function MigrationPanel() {
           ) : (
             <>
               <Download className="mr-2 h-4 w-4" />
-              Iniciar Migração
+              Testar Migração
             </>
           )}
         </Button>
+      </div>
+
+      {/* Aviso sobre configuração */}
+      <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <AlertTriangle className="mr-2 h-5 w-5 text-amber-400 mt-0.5" />
+          <div>
+            <h4 className="text-amber-400 font-medium mb-1">Configuração Necessária</h4>
+            <p className="text-sm text-amber-200">
+              Para migração real do Firebase, você precisa:
+            </p>
+            <ul className="text-sm text-amber-200 mt-2 ml-4 list-disc">
+              <li>Configurar Firebase Admin SDK</li>
+              <li>Adicionar credenciais do Firebase</li>
+              <li>Instalar FFmpeg para processamento de vídeo</li>
+              <li>Configurar MongoDB na VPS</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {isMigrating && (
@@ -171,8 +190,8 @@ export function MigrationPanel() {
       )}
 
       <div className="mt-4 text-xs text-gray-400">
-        <p>Esta ferramenta migra todos os arquivos do Firebase Storage para o sistema local da VPS,</p>
-        <p>otimizando vídeos e imagens durante o processo para reduzir o tamanho dos arquivos.</p>
+        <p>Esta é uma demonstração do sistema de migração. Para migração real,</p>
+        <p>configure o Firebase Admin SDK e as dependências necessárias.</p>
       </div>
     </div>
   )

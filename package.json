@@ -44,7 +44,6 @@
     "cmdk": "latest",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
-    "fluent-ffmpeg": "^2.1.2",
     "lucide-react": "^0.454.0",
     "mongodb": "^6.3.0",
     "next": "15.2.4",
@@ -64,7 +63,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/fluent-ffmpeg": "^2.1.24",
     "@types/node": "^22.15.32",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19",
