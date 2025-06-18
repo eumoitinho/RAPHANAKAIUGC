@@ -29,16 +29,31 @@ export class FirebaseMigration {
     const results: MigrationResult[] = []
 
     try {
+      // Verificar se o Firebase está configurado
+      if (!adminDb || !adminStorage) {
+        throw new Error('Firebase não está configurado corretamente. Verifique as variáveis de ambiente.')
+      }
+
       // 1. Buscar todos os itens do Firestore
       console.log('Buscando itens do Firestore...')
       const snapshot = await adminDb.collection('media').get()
       
       console.log(`Encontrados ${snapshot.docs.length} itens para migrar`)
 
+      if (snapshot.docs.length === 0) {
+        console.log('Nenhum item encontrado no Firestore para migrar')
+        return []
+      }
+
       for (const doc of snapshot.docs) {
         const data = doc.data()
+        console.log(`Processando item: ${data.title || doc.id}`)
+        
         const result = await this.migrateMediaItem(doc.id, data)
         results.push(result)
+        
+        // Pequena pausa entre migrações para evitar sobrecarga
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
       return results
@@ -52,12 +67,19 @@ export class FirebaseMigration {
     try {
       console.log(`Migrando item: ${data.title}`)
 
+      // Verificar se os dados necessários existem
+      if (!data.fileUrl) {
+        throw new Error('URL do arquivo não encontrada')
+      }
+
       // 2. Baixar arquivo do Firebase Storage
       const fileBuffer = await this.downloadFromFirebase(data.fileUrl)
       const originalSize = fileBuffer.length
 
+      console.log(`Arquivo baixado: ${originalSize} bytes`)
+
       // 3. Criar arquivo temporário
-      const tempFile = await this.createTempFile(fileBuffer, data.fileName || 'temp')
+      const tempFile = await this.createTempFile(fileBuffer, data.fileName || `${originalId}.mp4`)
 
       // 4. Processar e otimizar
       let processedMedia
@@ -67,14 +89,18 @@ export class FirebaseMigration {
         processedMedia = await this.processor.processImage(tempFile)
       }
 
+      console.log(`Arquivo processado: ${processedMedia.fileSize} bytes`)
+
       // 5. Baixar thumbnail se for vídeo
       let thumbnailUrl = processedMedia.optimizedPath.replace(process.cwd() + '/public', '')
       if (data.fileType === 'video' && data.thumbnailUrl && data.thumbnailUrl !== data.fileUrl) {
         try {
           const thumbnailBuffer = await this.downloadFromFirebase(data.thumbnailUrl)
           thumbnailUrl = await this.saveThumbnail(thumbnailBuffer, originalId)
+          console.log(`Thumbnail salvo: ${thumbnailUrl}`)
         } catch (error) {
-          console.warn('Erro ao baixar thumbnail:', error)
+          console.warn('Erro ao baixar thumbnail, usando placeholder:', error)
+          thumbnailUrl = '/placeholder.svg?height=400&width=300&text=Video'
         }
       }
 
@@ -84,7 +110,7 @@ export class FirebaseMigration {
         description: data.description || '',
         fileUrl: processedMedia.optimizedPath.replace(process.cwd() + '/public', ''),
         thumbnailUrl,
-        fileType: data.fileType,
+        fileType: data.fileType || 'photo',
         categories: data.categories || [],
         fileName: path.basename(processedMedia.optimizedPath),
         fileSize: processedMedia.fileSize,
@@ -93,9 +119,12 @@ export class FirebaseMigration {
         optimized: true
       })
 
+      console.log(`Item salvo no MongoDB: ${newMediaItem.id}`)
+
       // 7. Atualizar views se existir
       if (data.views && data.views > 0) {
-        for (let i = 0; i < data.views; i++) {
+        console.log(`Atualizando ${data.views} views...`)
+        for (let i = 0; i < Math.min(data.views, 1000); i++) { // Limitar a 1000 views para evitar timeout
           await this.mediaService.incrementViews(newMediaItem.id)
         }
       }
@@ -105,7 +134,7 @@ export class FirebaseMigration {
       return {
         originalId,
         newId: newMediaItem.id,
-        title: data.title,
+        title: data.title || 'Item migrado',
         status: 'success',
         originalSize,
         newSize: processedMedia.fileSize,
@@ -113,7 +142,7 @@ export class FirebaseMigration {
       }
 
     } catch (error) {
-      console.error(`Erro ao migrar ${data.title}:`, error)
+      console.error(`Erro ao migrar ${data.title || originalId}:`, error)
       return {
         originalId,
         title: data.title || 'Item sem título',
@@ -125,19 +154,40 @@ export class FirebaseMigration {
 
   private async downloadFromFirebase(firebaseUrl: string): Promise<Buffer> {
     try {
-      // Extrair o caminho do arquivo da URL do Firebase
-      const url = new URL(firebaseUrl)
-      const pathMatch = url.pathname.match(/\/o\/(.+)\?/)
+      console.log(`Baixando arquivo: ${firebaseUrl}`)
       
-      if (!pathMatch) {
-        throw new Error('URL do Firebase inválida')
+      // Verificar se é uma URL do Firebase Storage
+      if (!firebaseUrl.includes('firebase') && !firebaseUrl.includes('googleapis.com')) {
+        throw new Error('URL não é do Firebase Storage')
       }
 
-      const filePath = decodeURIComponent(pathMatch[1])
+      // Extrair o caminho do arquivo da URL do Firebase
+      const url = new URL(firebaseUrl)
+      let filePath = ''
+
+      if (url.pathname.includes('/o/')) {
+        // URL formato: https://firebasestorage.googleapis.com/v0/b/bucket/o/path?alt=media
+        const pathMatch = url.pathname.match(/\/o\/(.+)/)
+        if (!pathMatch) {
+          throw new Error('Não foi possível extrair o caminho do arquivo da URL')
+        }
+        filePath = decodeURIComponent(pathMatch[1])
+      } else {
+        throw new Error('Formato de URL do Firebase não reconhecido')
+      }
+
+      console.log(`Caminho do arquivo extraído: ${filePath}`)
       
       // Baixar do Firebase Storage
       const file = adminStorage.bucket().file(filePath)
+      const [exists] = await file.exists()
+      
+      if (!exists) {
+        throw new Error(`Arquivo não encontrado no Storage: ${filePath}`)
+      }
+      
       const [buffer] = await file.download()
+      console.log(`Arquivo baixado com sucesso: ${buffer.length} bytes`)
       
       return buffer
     } catch (error) {

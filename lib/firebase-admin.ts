@@ -6,22 +6,41 @@ import { getStorage } from 'firebase-admin/storage'
 const initializeFirebaseAdmin = () => {
   if (getApps().length === 0) {
     try {
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-      
-      if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !privateKey) {
-        throw new Error('Firebase credentials not configured')
+      // Verificar se todas as variáveis necessárias estão presentes
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY
+      const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+
+      if (!projectId || !clientEmail || !privateKey || !storageBucket) {
+        console.error('Firebase credentials missing:', {
+          projectId: !!projectId,
+          clientEmail: !!clientEmail,
+          privateKey: !!privateKey,
+          storageBucket: !!storageBucket
+        })
+        throw new Error('Firebase credentials not configured properly')
       }
 
-      console.log('Initializing Firebase Admin with your existing credentials')
+      // Limpar e formatar a chave privada
+      const formattedPrivateKey = privateKey
+        .replace(/\\n/g, '\n')
+        .replace(/"/g, '')
+        .trim()
+
+      console.log('Initializing Firebase Admin with credentials for project:', projectId)
       
-      return initializeApp({
+      const app = initializeApp({
         credential: cert({
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey,
+          projectId,
+          clientEmail,
+          privateKey: formattedPrivateKey,
         }),
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        storageBucket,
       })
+
+      console.log('Firebase Admin initialized successfully')
+      return app
     } catch (error) {
       console.error('Error initializing Firebase Admin:', error)
       throw error
@@ -32,10 +51,19 @@ const initializeFirebaseAdmin = () => {
 }
 
 // Initialize the app
-const app = initializeFirebaseAdmin()
+let app: any
+let adminDb: any
+let adminStorage: any
 
-// Get Firestore and Storage instances
-const adminDb = getFirestore(app)
-const adminStorage = getStorage(app)
+try {
+  app = initializeFirebaseAdmin()
+  adminDb = getFirestore(app)
+  adminStorage = getStorage(app)
+} catch (error) {
+  console.error('Failed to initialize Firebase Admin:', error)
+  // Criar objetos mock para evitar erros
+  adminDb = null
+  adminStorage = null
+}
 
 export { adminDb, adminStorage, app }
