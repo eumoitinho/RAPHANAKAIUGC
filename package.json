@@ -44,6 +44,7 @@
     "cmdk": "latest",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
+    "firebase-admin": "^12.0.0",
     "lucide-react": "^0.454.0",
     "mongodb": "^6.3.0",
     "next": "15.2.4",

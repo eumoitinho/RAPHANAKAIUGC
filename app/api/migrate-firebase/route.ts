@@ -1,40 +1,34 @@
 import { NextResponse } from 'next/server'
-import { MediaService } from '@/lib/media-service'
+import { FirebaseMigration } from '@/lib/firebase-migration'
 
 export async function POST() {
   try {
-    const mediaService = new MediaService()
+    console.log('Iniciando migração do Firebase...')
     
-    // Por enquanto, retorna uma resposta simulada
-    // Para implementar a migração real, você precisará:
-    // 1. Configurar o Firebase Admin SDK
-    // 2. Buscar todos os itens do Firestore
-    // 3. Baixar arquivos do Firebase Storage
-    // 4. Processar e otimizar os arquivos
-    // 5. Salvar no MongoDB
+    const migration = new FirebaseMigration()
+    const results = await migration.migrateAllMedia()
     
-    const migrationResults = [
-      {
-        originalId: 'example-1',
-        newId: 'new-1',
-        title: 'Exemplo de migração',
-        status: 'success' as const,
-        originalSize: 1000000,
-        newSize: 600000,
-        compressionRatio: '40%'
-      }
-    ]
+    const successCount = results.filter(r => r.status === 'success').length
+    const errorCount = results.filter(r => r.status === 'error').length
     
     return NextResponse.json({
       success: true,
-      message: `Migração simulada concluída. Para migração real, configure o Firebase Admin SDK.`,
-      results: migrationResults
+      message: `Migração concluída! ${successCount} itens migrados com sucesso, ${errorCount} erros.`,
+      results,
+      summary: {
+        total: results.length,
+        success: successCount,
+        errors: errorCount
+      }
     })
     
   } catch (error) {
-    console.error('Migration error:', error)
+    console.error('Erro na migração:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Migration failed' },
+      { 
+        error: error instanceof Error ? error.message : 'Erro na migração',
+        details: 'Verifique se as credenciais do Firebase estão configuradas corretamente'
+      },
       { status: 500 }
     )
   }
