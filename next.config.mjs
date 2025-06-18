@@ -21,14 +21,14 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
-  // Aumentar limites para upload de arquivos
+  // Configurar limites para Vercel
   api: {
     bodyParser: {
-      sizeLimit: '100mb',
+      sizeLimit: '50mb', // Reduzido para 50MB
     },
-    responseLimit: '100mb',
+    responseLimit: '50mb',
   },
-  // Configurar headers para uploads grandes
+  // Configurar headers para uploads
   async headers() {
     return [
       {

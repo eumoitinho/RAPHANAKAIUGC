@@ -3,18 +3,18 @@ import { MediaProcessor } from '@/lib/media-processor'
 import { MediaService } from '@/lib/media-service'
 import path from 'path'
 
-// Configurações para upload
-export const maxDuration = 300 // 5 minutos
+// Configurações para Vercel (máximo 60s no plano hobby)
+export const maxDuration = 60 // 60 segundos máximo
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     const contentLength = request.headers.get('content-length')
-    const maxSize = 100 * 1024 * 1024 // 100MB
+    const maxSize = 50 * 1024 * 1024 // Reduzido para 50MB para processar mais rápido
 
     if (contentLength && parseInt(contentLength) > maxSize) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 100MB.' },
+        { error: 'Arquivo muito grande. Máximo 50MB para processamento rápido.' },
         { status: 413 }
       )
     }
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Verificar tamanho do arquivo
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 100MB.' },
+        { error: 'Arquivo muito grande. Máximo 50MB para processamento rápido.' },
         { status: 413 }
       )
     }
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof Error && error.message.includes('PayloadTooLargeError')) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Tente um arquivo menor que 100MB.' },
+        { error: 'Arquivo muito grande. Tente um arquivo menor que 50MB.' },
         { status: 413 }
       )
     }

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from "react"
 import Image from "next/image"
-import { Upload, X, Plus, Check, Play, Pause, RotateCcw } from "lucide-react"
+import { Upload, X, Plus, Check, Play, Pause, RotateCcw, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,6 +38,11 @@ export function EnhancedMediaUploader() {
 
   const categories = ["Wellness", "ADS", "Experiência", "Beauty", "Pet", "Decor", "Receitas", "Moda", "Viagem"]
 
+  // Limites ajustados para Vercel
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+  const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
+  const MAX_PHOTO_SIZE = 20 * 1024 * 1024 // 20MB
+
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
       setSelectedCategories(selectedCategories.filter((c) => c !== category))
@@ -46,9 +51,30 @@ export function EnhancedMediaUploader() {
     }
   }
 
+  const validateFileSize = (file: File): boolean => {
+    const maxSize = mediaType === "video" ? MAX_VIDEO_SIZE : MAX_PHOTO_SIZE
+    const maxSizeMB = Math.round(maxSize / (1024 * 1024))
+    
+    if (file.size > maxSize) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O arquivo deve ter no máximo ${maxSizeMB}MB para ${mediaType === "video" ? "vídeos" : "fotos"}.`,
+        variant: "destructive",
+      })
+      return false
+    }
+    return true
+  }
+
   const handleMediaChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      
+      // Validar tamanho do arquivo
+      if (!validateFileSize(file)) {
+        return
+      }
+
       setMediaFile(file)
 
       // Create preview URL
@@ -80,13 +106,14 @@ export function EnhancedMediaUploader() {
             setVideoFrames(frames)
             setUploadProgress(null)
           } else {
-            throw new Error('Falha ao extrair frames')
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Falha ao extrair frames')
           }
         } catch (error) {
           console.error('Error extracting frames:', error)
           toast({
             title: "Erro",
-            description: "Falha ao extrair frames do vídeo",
+            description: error instanceof Error ? error.message : "Falha ao extrair frames do vídeo",
             variant: "destructive",
           })
           setUploadProgress(null)
@@ -116,11 +143,16 @@ export function EnhancedMediaUploader() {
       return
     }
 
+    // Validar tamanho novamente antes do upload
+    if (!validateFileSize(mediaFile)) {
+      return
+    }
+
     setIsUploading(true)
     setUploadProgress({
       stage: 'uploading',
       progress: 0,
-      message: 'Iniciando upload...'
+      message: 'Iniciando upload otimizado...'
     })
 
     try {
@@ -154,8 +186,8 @@ export function EnhancedMediaUploader() {
       })
 
       toast({
-        title: "Upload completo",
-        description: `Arquivo enviado com sucesso! ID: ${result.item.id}`,
+        title: "🎉 Upload completo",
+        description: `Arquivo otimizado e enviado! Economia: ${result.optimizationInfo?.compressionRatio || '0%'}`,
       })
 
       setUploadSuccess(true)
@@ -196,10 +228,18 @@ export function EnhancedMediaUploader() {
     setUploadSuccess(false)
   }
 
+  const getMaxSizeText = () => {
+    if (mediaType === "video") {
+      return "MP4, WebM ou MOV (máx. 50MB)"
+    } else {
+      return "PNG, JPG ou WebP (máx. 20MB)"
+    }
+  }
+
   return (
     <div className="bg-[#1e1e1e] rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Upload de Mídia Otimizado</h2>
+        <h2 className="text-xl font-bold">Upload Otimizado - Vercel Ready</h2>
         {(mediaFile || uploadProgress) && (
           <Button
             variant="outline"
@@ -211,6 +251,20 @@ export function EnhancedMediaUploader() {
             Resetar
           </Button>
         )}
+      </div>
+
+      {/* Aviso sobre limites do Vercel */}
+      <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <AlertTriangle className="mr-2 h-5 w-5 text-amber-400 mt-0.5" />
+          <div>
+            <h4 className="text-amber-400 font-medium mb-1">⚡ Otimizado para Vercel</h4>
+            <p className="text-sm text-amber-200">
+              Limites ajustados para processamento rápido: <strong>50MB para vídeos</strong> e <strong>20MB para fotos</strong>.
+              Processamento em até 60 segundos com otimização automática.
+            </p>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -228,7 +282,7 @@ export function EnhancedMediaUploader() {
                   }`}
                   disabled={isUploading}
                 >
-                  Vídeo
+                  Vídeo (50MB)
                 </button>
                 <button
                   type="button"
@@ -238,7 +292,7 @@ export function EnhancedMediaUploader() {
                   }`}
                   disabled={isUploading}
                 >
-                  Foto
+                  Foto (20MB)
                 </button>
               </div>
             </div>
@@ -345,7 +399,7 @@ export function EnhancedMediaUploader() {
                     <Upload className="mx-auto h-12 w-12 text-gray-400" />
                     <p className="mt-2 text-sm text-gray-400">Clique para fazer upload ou arraste e solte</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      {mediaType === "video" ? "MP4, WebM ou MOV (máx. 100MB)" : "PNG, JPG ou WebP (máx. 20MB)"}
+                      {getMaxSizeText()}
                     </p>
                   </div>
                 )}
@@ -408,6 +462,9 @@ export function EnhancedMediaUploader() {
               <span>{uploadProgress.progress}%</span>
             </div>
             <Progress value={uploadProgress.progress} className="w-full" />
+            <p className="text-xs text-gray-400 mt-2">
+              Processamento otimizado para Vercel (máx. 60s)
+            </p>
           </div>
         )}
 

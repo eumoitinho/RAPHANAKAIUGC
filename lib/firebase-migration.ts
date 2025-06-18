@@ -45,7 +45,12 @@ export class FirebaseMigration {
         return []
       }
 
-      for (const doc of snapshot.docs) {
+      // Para o Vercel, vamos processar apenas os primeiros 5 itens por vez
+      // devido ao limite de 60 segundos
+      const itemsToProcess = snapshot.docs.slice(0, 5)
+      console.log(`Processando ${itemsToProcess.length} itens (limitado para Vercel)`)
+
+      for (const doc of itemsToProcess) {
         const data = doc.data()
         console.log(`Processando item: ${data.title || doc.id}`)
         
@@ -53,7 +58,16 @@ export class FirebaseMigration {
         results.push(result)
         
         // Pequena pausa entre migrações para evitar sobrecarga
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      if (snapshot.docs.length > 5) {
+        results.push({
+          originalId: 'remaining',
+          title: `${snapshot.docs.length - 5} itens restantes`,
+          status: 'error',
+          error: 'Execute a migração novamente para processar os itens restantes (limite Vercel: 60s)'
+        })
       }
 
       return results
@@ -77,6 +91,11 @@ export class FirebaseMigration {
       const originalSize = fileBuffer.length
 
       console.log(`Arquivo baixado: ${originalSize} bytes`)
+
+      // Verificar tamanho para Vercel (máx 50MB)
+      if (originalSize > 50 * 1024 * 1024) {
+        throw new Error('Arquivo muito grande para processar no Vercel (máx 50MB)')
+      }
 
       // 3. Criar arquivo temporário
       const tempFile = await this.createTempFile(fileBuffer, data.fileName || `${originalId}.mp4`)
@@ -121,10 +140,11 @@ export class FirebaseMigration {
 
       console.log(`Item salvo no MongoDB: ${newMediaItem.id}`)
 
-      // 7. Atualizar views se existir
+      // 7. Atualizar views se existir (limitado para evitar timeout)
       if (data.views && data.views > 0) {
-        console.log(`Atualizando ${data.views} views...`)
-        for (let i = 0; i < Math.min(data.views, 1000); i++) { // Limitar a 1000 views para evitar timeout
+        const viewsToAdd = Math.min(data.views, 100) // Limitar a 100 views
+        console.log(`Atualizando ${viewsToAdd} views...`)
+        for (let i = 0; i < viewsToAdd; i++) {
           await this.mediaService.incrementViews(newMediaItem.id)
         }
       }

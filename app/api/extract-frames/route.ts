@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Aumentar limite de tamanho para esta rota
-export const maxDuration = 60 // 60 segundos
+// Configurações para Vercel (máximo 60s no plano hobby)
+export const maxDuration = 60 // 60 segundos máximo
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     const contentLength = request.headers.get('content-length')
-    const maxSize = 100 * 1024 * 1024 // 100MB
+    const maxSize = 50 * 1024 * 1024 // 50MB para processamento mais rápido
 
     if (contentLength && parseInt(contentLength) > maxSize) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 100MB.' },
+        { error: 'Arquivo muito grande. Máximo 50MB.' },
         { status: 413 }
       )
     }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Verificar tamanho do arquivo
     if (videoFile.size > maxSize) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 100MB.' },
+        { error: 'Arquivo muito grande. Máximo 50MB.' },
         { status: 413 }
       )
     }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof Error && error.message.includes('PayloadTooLargeError')) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Tente um arquivo menor que 100MB.' },
+        { error: 'Arquivo muito grande. Tente um arquivo menor que 50MB.' },
         { status: 413 }
       )
     }
