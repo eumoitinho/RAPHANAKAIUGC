@@ -17,7 +17,8 @@ export function MediaUploaderVPS() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [selectedThumbnail, setSelectedThumbnail] = useState<string>("")
+  const [selectedThumbnail, setSelectedThumbnail] = useState<Blob | null>(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>("")
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSuccess, setUploadSuccess] = useState(false)
@@ -38,7 +39,8 @@ export function MediaUploaderVPS() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setMediaFile(file)
-      setSelectedThumbnail("") // Reset thumbnail quando trocar arquivo
+      setSelectedThumbnail(null) // Reset thumbnail quando trocar arquivo
+      setThumbnailPreview("")
 
       // Create preview URL
       const reader = new FileReader()
@@ -49,8 +51,13 @@ export function MediaUploaderVPS() {
     }
   }
 
-  const handleThumbnailSelected = (thumbnailUrl: string) => {
-    setSelectedThumbnail(thumbnailUrl)
+  const handleThumbnailSelected = (thumbnailBlob: Blob) => {
+    setSelectedThumbnail(thumbnailBlob)
+    
+    // Criar preview da thumbnail
+    const thumbnailUrl = URL.createObjectURL(thumbnailBlob)
+    setThumbnailPreview(thumbnailUrl)
+    
     toast({
       title: "Thumbnail selecionada",
       description: "Thumbnail do vídeo definida com sucesso!",
@@ -106,7 +113,7 @@ export function MediaUploaderVPS() {
       
       // Adicionar thumbnail se for vídeo
       if (mediaType === "video" && selectedThumbnail) {
-        formData.append("thumbnailUrl", selectedThumbnail)
+        formData.append("thumbnail", selectedThumbnail, "thumbnail.jpg")
       }
 
       setUploadProgress(20)
@@ -145,7 +152,8 @@ export function MediaUploaderVPS() {
           setSelectedCategories([])
           setMediaFile(null)
           setMediaPreview(null)
-          setSelectedThumbnail("")
+          setSelectedThumbnail(null)
+          setThumbnailPreview("")
           setUploadSuccess(false)
           setUploadProgress(0)
         }, 2000)
@@ -283,7 +291,8 @@ export function MediaUploaderVPS() {
                         onClick={() => {
                           setMediaFile(null)
                           setMediaPreview(null)
-                          setSelectedThumbnail("")
+                          setSelectedThumbnail(null)
+                          setThumbnailPreview("")
                         }}
                         className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
                       >
@@ -321,6 +330,21 @@ export function MediaUploaderVPS() {
                       <p className="text-green-400"><strong>✅ Thumbnail:</strong> Selecionada</p>
                     )}
                   </div>
+                  
+                  {/* Preview da thumbnail selecionada */}
+                  {thumbnailPreview && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-300 mb-1">Thumbnail selecionada:</p>
+                      <div className="relative w-20 h-12 rounded overflow-hidden">
+                        <Image 
+                          src={thumbnailPreview} 
+                          alt="Thumbnail" 
+                          fill 
+                          className="object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
