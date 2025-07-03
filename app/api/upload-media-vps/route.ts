@@ -1,119 +1,149 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MediaProcessor } from '@/lib/media-processor'
-import { MediaService } from '@/lib/media-service'
-import path from 'path'
 
-// Configurações para Vercel (máximo 60s no plano hobby)
-export const maxDuration = 60 // 60 segundos máximo
+const UPLOADS_API_URL = process.env.UPLOADS_API_URL || 'https://uploads.catalisti.com.br'
+
+// Configurações para Vercel
+export const maxDuration = 60
 export const dynamic = 'force-dynamic'
-
-// Configurar limites de tamanho
-export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    const contentLength = request.headers.get('content-length')
-    const maxSize = 50 * 1024 * 1024 // 50MB
-
-    if (contentLength && parseInt(contentLength) > maxSize) {
-      return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 50MB para processamento rápido.' },
-        { status: 413 }
-      )
-    }
-
+    console.log('📤 Redirecionando upload para VPS:', UPLOADS_API_URL)
+    
     const formData = await request.formData()
     
+    // Log do que está sendo enviado
     const file = formData.get('file') as File
-    const title = formData.get('title') as string
-    const description = formData.get('description') as string
-    const fileType = formData.get('fileType') as 'video' | 'photo'
-    const categories = JSON.parse(formData.get('categories') as string)
-    const selectedFrame = formData.get('selectedFrame') as string | null
-
-    if (!file || !title || !fileType || !categories) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    // Verificar tamanho do arquivo novamente
-    if (file.size > maxSize) {
+    console.log('Arquivo:', file?.name, 'Tamanho:', file?.size, 'bytes')
+    
+    // Verificar se o arquivo não é muito grande para a Vercel processar
+    const maxVercelSize = 50 * 1024 * 1024 // 50MB
+    if (file && file.size > maxVercelSize) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Máximo 50MB para processamento rápido.' },
+        { 
+          error: 'Arquivo muito grande para processamento via Vercel. Use upload direto na VPS.',
+          suggestion: 'Tente um arquivo menor que 50MB ou use upload direto.'
+        },
         { status: 413 }
       )
     }
+    
+    // Reenviar para a VPS
+    const response = await fetch(`${UPLOADS_API_URL}/upload`, {
+      method: 'POST',
+      body: formData,
+    })
 
-    console.log(`Processing upload: ${file.name}, type: ${fileType}, size: ${file.size} bytes`)
+    console.log('Status da VPS:', response.status)
 
-    const processor = new MediaProcessor()
-    const mediaService = new MediaService()
-
-    let processedMedia
-    let thumbnailUrl = ''
-
-    if (fileType === 'video') {
-      processedMedia = await processor.processVideo(file)
+    if (!response.ok) {
+      let errorMessage = `VPS Error: ${response.status}`
       
-      if (selectedFrame) {
-        thumbnailUrl = await processor.createThumbnailFromFrame(
-          selectedFrame, 
-          path.basename(processedMedia.optimizedPath, path.extname(processedMedia.optimizedPath))
-        )
-      } else {
-        thumbnailUrl = '/placeholder.svg?height=400&width=300&text=Video'
+      try {
+        const errorText = await response.text()
+        console.error('❌ Erro da VPS:', errorText)
+        errorMessage = errorText
+      } catch (e) {
+        console.error('❌ Erro ao ler resposta da VPS')
       }
-    } else {
-      processedMedia = await processor.processImage(file)
-      thumbnailUrl = processedMedia.optimizedPath.replace(process.cwd() + '/public', '')
+      
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      )
     }
 
-    // Criar item no banco de dados
-    const mediaItem = await mediaService.createMedia({
-      title,
-      description,
-      fileUrl: processedMedia.optimizedPath.replace(process.cwd() + '/public', ''),
-      thumbnailUrl,
-      fileType,
-      categories,
-      fileName: path.basename(processedMedia.optimizedPath),
-      fileSize: processedMedia.fileSize,
-      dimensions: processedMedia.dimensions,
-      duration: processedMedia.duration,
-      optimized: true
-    })
-
-    // Limpar arquivos temporários
-    await processor.cleanupTempFiles()
-
-    const compressionRatio = ((file.size - processedMedia.fileSize) / file.size * 100).toFixed(1)
-
-    console.log(`Upload completed: ${mediaItem.id}, compression: ${compressionRatio}%`)
-
-    return NextResponse.json({ 
-      success: true, 
-      item: mediaItem,
-      optimizationInfo: {
-        originalSize: file.size,
-        optimizedSize: processedMedia.fileSize,
-        compressionRatio: compressionRatio + '%'
-      }
-    })
-
+    const result = await response.json()
+    console.log('✅ Upload concluído na VPS:', result.item?.fileName)
+    
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('❌ Erro no upload:', error)
     
     if (error instanceof Error && (
       error.message.includes('PayloadTooLargeError') || 
-      error.message.includes('Body exceeded')
+      error.message.includes('Body exceeded') ||
+      error.message.includes('413')
     )) {
       return NextResponse.json(
-        { error: 'Arquivo muito grande. Tente um arquivo menor que 50MB.' },
+        { 
+          error: 'Arquivo muito grande para a Vercel processar',
+          suggestion: 'Tente um arquivo menor que 50MB'
+        },
         { status: 413 }
       )
     }
     
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Upload failed' },
+      { 
+        error: error instanceof Error ? error.message : 'Upload failed',
+        details: 'Erro ao conectar com o servidor de uploads'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET() {
+  try {
+    console.log('📋 Buscando arquivos da VPS:', UPLOADS_API_URL)
+    
+    const response = await fetch(`${UPLOADS_API_URL}/files`, {
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`VPS Error: ${response.status}`)
+    }
+
+    const result = await response.json()
+    console.log(`✅ ${result.files?.length || 0} arquivos encontrados`)
+    
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('❌ Erro ao buscar arquivos:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch files from VPS' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const filename = searchParams.get('filename')
+    const fileType = searchParams.get('fileType')
+    
+    if (!filename || !fileType) {
+      return NextResponse.json(
+        { error: 'Filename and fileType are required' },
+        { status: 400 }
+      )
+    }
+    
+    console.log('🗑️ Deletando arquivo da VPS:', filename)
+    
+    const response = await fetch(
+      `${UPLOADS_API_URL}/delete/${filename}?fileType=${fileType}`,
+      { method: 'DELETE' }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`VPS Error: ${response.status}`)
+    }
+    
+    const result = await response.json()
+    console.log('✅ Arquivo deletado da VPS')
+    
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('❌ Erro ao deletar arquivo:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete file from VPS' },
       { status: 500 }
     )
   }
