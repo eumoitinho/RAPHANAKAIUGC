@@ -31,40 +31,56 @@ export default function VideoThumbnailSelector({
   const [loading, setLoading] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [error, setError] = useState('')
+  const [isComponentMounted, setIsComponentMounted] = useState(false)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Aguardar a montagem do componente
+  useEffect(() => {
+    setIsComponentMounted(true)
+  }, [])
 
   useEffect(() => {
-    if (videoFile) {
-      // Pequeno delay para garantir que os elementos estejam no DOM
-      setTimeout(() => {
-        extractFramesClient()
-      }, 100)
+    if (videoFile && isComponentMounted) {
+      // Aguardar um frame de renderização antes de extrair
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          extractFramesClient()
+        }, 200)
+      })
     }
-  }, [videoFile])
+  }, [videoFile, isComponentMounted])
 
   const extractFramesClient = async () => {
-    if (!videoFile) return
+    if (!videoFile || !isComponentMounted) return
     
     try {
       setExtracting(true)
       setError('')
       console.log('🎬 Extraindo frames no cliente:', videoFile.name)
       
-      // Verificar se os elementos existem com mais detalhes
+      // Aguardar mais um pouco para garantir renderização
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Verificar se os elementos existem
       const video = videoRef.current
       const canvas = canvasRef.current
       
       console.log('Video element:', video)
       console.log('Canvas element:', canvas)
+      console.log('Container:', containerRef.current)
       
       if (!video) {
-        throw new Error('Elemento de vídeo não encontrado. Verifique se o componente foi renderizado corretamente.')
+        console.error('Video element not found in DOM')
+        // Tentar criar elementos dinamicamente
+        return await extractFramesWithDynamicElements()
       }
       
       if (!canvas) {
-        throw new Error('Elemento canvas não encontrado. Verifique se o componente foi renderizado corretamente.')
+        console.error('Canvas element not found in DOM')
+        return await extractFramesWithDynamicElements()
       }
       
       const ctx = canvas.getContext('2d')
@@ -72,100 +88,160 @@ export default function VideoThumbnailSelector({
         throw new Error('Contexto 2D não disponível no canvas')
       }
 
-      // Criar URL do vídeo
-      const videoUrl = URL.createObjectURL(videoFile)
-      video.src = videoUrl
+      // Processar vídeo
+      await processVideo(video, canvas, ctx)
       
-      console.log('📹 Carregando vídeo:', videoUrl)
+    } catch (error) {
+      console.error('❌ Erro ao extrair frames:', error)
+      setError(error instanceof Error ? error.message : 'Erro ao extrair frames')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const extractFramesWithDynamicElements = async () => {
+    try {
+      console.log('🔧 Criando elementos dinamicamente...')
       
-      // Aguardar metadados do vídeo com timeout
+      // Criar video element dinamicamente
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.muted = true
+      video.playsInline = true
+      video.style.position = 'absolute'
+      video.style.left = '-9999px'
+      video.style.top = '-9999px'
+      video.style.width = '320px'
+      video.style.height = '180px'
+      
+      // Criar canvas element dinamicamente
+      const canvas = document.createElement('canvas')
+      canvas.width = 320
+      canvas.height = 180
+      canvas.style.position = 'absolute'
+      canvas.style.left = '-9999px'
+      canvas.style.top = '-9999px'
+      
+      // Adicionar ao DOM
+      document.body.appendChild(video)
+      document.body.appendChild(canvas)
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error('Contexto 2D não disponível no canvas criado dinamicamente')
+      }
+
+      try {
+        await processVideo(video, canvas, ctx)
+      } finally {
+        // Limpar elementos do DOM
+        document.body.removeChild(video)
+        document.body.removeChild(canvas)
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro na extração dinâmica:', error)
+      throw error
+    }
+  }
+
+  const processVideo = async (video: HTMLVideoElement, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
+    // Criar URL do vídeo
+    const videoUrl = URL.createObjectURL(videoFile)
+    video.src = videoUrl
+    
+    console.log('📹 Carregando vídeo:', videoUrl)
+    
+    // Aguardar metadados do vídeo com timeout
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout ao carregar metadados do vídeo (15s)'))
+      }, 15000) // 15 segundos de timeout
+      
+      video.onloadedmetadata = () => {
+        clearTimeout(timeout)
+        console.log('✅ Metadados carregados')
+        resolve(undefined)
+      }
+      video.onerror = (e) => {
+        clearTimeout(timeout)
+        console.error('Erro no vídeo:', e)
+        reject(new Error(`Erro ao carregar vídeo`))
+      }
+      
+      // Forçar o carregamento
+      video.load()
+    })
+    
+    const duration = video.duration
+    console.log('📹 Duração do vídeo:', duration, 'segundos')
+    
+    if (!duration || duration === 0 || !isFinite(duration)) {
+      throw new Error('Não foi possível obter a duração válida do vídeo')
+    }
+    
+    const timestamps = [
+      { percent: 10, time: duration * 0.1 },
+      { percent: 25, time: duration * 0.25 },
+      { percent: 50, time: duration * 0.5 },
+      { percent: 75, time: duration * 0.75 },
+      { percent: 90, time: duration * 0.9 }
+    ]
+    
+    const extractedFrames: Frame[] = []
+    
+    for (let i = 0; i < timestamps.length; i++) {
+      const { percent, time } = timestamps[i]
+      
+      console.log(`🖼️ Extraindo frame ${i + 1} em ${percent}% (${time.toFixed(1)}s)`)
+      
+      // Navegar para o tempo específico
+      video.currentTime = time
+      
+      // Aguardar o frame carregar
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Timeout ao carregar metadados do vídeo'))
-        }, 10000) // 10 segundos de timeout
+          console.warn(`⚠️ Timeout no frame ${i + 1}, continuando...`)
+          resolve(undefined) // Não rejeitar, apenas continuar
+        }, 8000) // 8 segundos por frame
         
-        video.onloadedmetadata = () => {
+        video.onseeked = () => {
           clearTimeout(timeout)
           resolve(undefined)
         }
         video.onerror = (e) => {
           clearTimeout(timeout)
-          reject(new Error(`Erro ao carregar vídeo: ${e}`))
+          console.warn(`⚠️ Erro no frame ${i + 1}, continuando...`)
+          resolve(undefined) // Não rejeitar, apenas continuar
         }
-        
-        // Forçar o carregamento
-        video.load()
       })
       
-      const duration = video.duration
-      console.log('📹 Duração do vídeo:', duration, 'segundos')
+      // Aguardar estabilização
+      await new Promise(resolve => setTimeout(resolve, 200))
       
-      if (!duration || duration === 0) {
-        throw new Error('Não foi possível obter a duração do vídeo')
-      }
-      
-      // Definir canvas com tamanho apropriado
-      canvas.width = 320
-      canvas.height = 180
-      
-      const timestamps = [
-        { percent: 10, time: duration * 0.1 },
-        { percent: 25, time: duration * 0.25 },
-        { percent: 50, time: duration * 0.5 },
-        { percent: 75, time: duration * 0.75 },
-        { percent: 90, time: duration * 0.9 }
-      ]
-      
-      const extractedFrames: Frame[] = []
-      
-      for (let i = 0; i < timestamps.length; i++) {
-        const { percent, time } = timestamps[i]
-        
-        console.log(`🖼️ Extraindo frame ${i + 1} em ${percent}% (${time.toFixed(1)}s)`)
-        
-        // Navegar para o tempo específico
-        video.currentTime = time
-        
-        // Aguardar o frame carregar com timeout
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error(`Timeout ao buscar frame em ${percent}%`))
-          }, 5000)
-          
-          video.onseeked = () => {
-            clearTimeout(timeout)
-            resolve(undefined)
-          }
-          video.onerror = (e) => {
-            clearTimeout(timeout)
-            reject(new Error(`Erro ao navegar para ${percent}%: ${e}`))
-          }
-        })
-        
-        // Aguardar um pouco mais para garantir que o frame está carregado
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Limpar canvas antes de desenhar
+      try {
+        // Limpar canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         
         // Desenhar frame no canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         
-        // Verificar se algo foi desenhado
+        // Verificar se tem conteúdo
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const hasData = imageData.data.some(pixel => pixel !== 0)
         
         if (!hasData) {
-          console.warn(`⚠️ Frame ${i + 1} parece estar vazio`)
+          console.warn(`⚠️ Frame ${i + 1} vazio, continuando...`)
+          continue
         }
         
-        // Converter canvas para blob
+        // Converter para blob
         const blob = await new Promise<Blob>((resolve, reject) => {
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob)
             } else {
-              reject(new Error(`Falha ao converter frame ${i + 1} para blob`))
+              reject(new Error(`Falha ao converter frame ${i + 1}`))
             }
           }, 'image/jpeg', 0.8)
         })
@@ -181,25 +257,24 @@ export default function VideoThumbnailSelector({
         })
         
         console.log(`✅ Frame ${i + 1} extraído com sucesso`)
+        
+      } catch (frameError) {
+        console.warn(`⚠️ Erro ao processar frame ${i + 1}:`, frameError)
+        // Continuar com o próximo frame
+        continue
       }
-      
-      // Limpar URL do vídeo
-      URL.revokeObjectURL(videoUrl)
-      
-      setFrames(extractedFrames)
-      onFramesExtracted?.(extractedFrames)
-      console.log('✅ Todos os frames extraídos:', extractedFrames.length)
-      
-      if (extractedFrames.length === 0) {
-        throw new Error('Nenhum frame foi extraído com sucesso')
-      }
-      
-    } catch (error) {
-      console.error('❌ Erro ao extrair frames:', error)
-      setError(error instanceof Error ? error.message : 'Erro ao extrair frames')
-    } finally {
-      setExtracting(false)
     }
+    
+    // Limpar URL do vídeo
+    URL.revokeObjectURL(videoUrl)
+    
+    if (extractedFrames.length === 0) {
+      throw new Error('Nenhum frame foi extraído com sucesso. Verifique se o vídeo é válido.')
+    }
+    
+    setFrames(extractedFrames)
+    onFramesExtracted?.(extractedFrames)
+    console.log('✅ Extração concluída:', extractedFrames.length, 'frames')
   }
 
   const handleFrameSelect = async (frame: Frame) => {
@@ -208,11 +283,7 @@ export default function VideoThumbnailSelector({
       setSelectedFrame(frame)
       
       console.log('🖼️ Selecionando thumbnail:', frame.timestamp)
-      
-      // Passar o blob da thumbnail
       onThumbnailSelected(frame.blob)
-      
-      console.log('✅ Thumbnail selecionada:', frame.timestamp)
       
       toast({
         title: "Thumbnail selecionada",
@@ -226,6 +297,13 @@ export default function VideoThumbnailSelector({
     }
   }
 
+  const retryExtraction = () => {
+    setError('')
+    setFrames([])
+    setSelectedFrame(null)
+    extractFramesClient()
+  }
+
   if (extracting) {
     return (
       <Card className="bg-[#1e1e1e] border-[#333333]">
@@ -236,7 +314,7 @@ export default function VideoThumbnailSelector({
           </div>
           <h3 className="text-lg font-semibold mb-2">Extraindo Frames</h3>
           <p className="text-sm text-gray-400">
-            Gerando frames do vídeo no navegador...
+            Processando vídeo e gerando thumbnails...
           </p>
         </CardContent>
       </Card>
@@ -248,12 +326,21 @@ export default function VideoThumbnailSelector({
       <Card className="bg-[#1e1e1e] border-[#333333]">
         <CardContent className="p-6 text-center">
           <p className="text-red-400 mb-4 text-sm">{error}</p>
-          <Button 
-            onClick={extractFramesClient}
-            className="bg-[#d87093] hover:bg-[#c06082]"
-          >
-            Tentar Novamente
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={retryExtraction}
+              className="bg-[#d87093] hover:bg-[#c06082] mr-2"
+            >
+              Tentar Novamente
+            </Button>
+            <Button 
+              onClick={() => setError('')}
+              variant="outline"
+              className="bg-[#252525] border-[#333333] text-white hover:bg-[#333333]"
+            >
+              Pular Thumbnail
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -276,9 +363,18 @@ export default function VideoThumbnailSelector({
   }
 
   return (
-    <div>
-      {/* Elementos para processamento - agora visíveis mas ocultos */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+    <div ref={containerRef}>
+      {/* Elementos ocultos para processamento */}
+      <div 
+        style={{ 
+          position: 'absolute', 
+          left: '-9999px', 
+          top: '-9999px',
+          width: '320px',
+          height: '180px',
+          visibility: 'hidden'
+        }}
+      >
         <video 
           ref={videoRef} 
           preload="metadata"
@@ -335,7 +431,6 @@ export default function VideoThumbnailSelector({
                     </div>
                   )}
                   
-                  {/* Play icon overlay */}
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                     <div className="bg-black bg-opacity-50 rounded-full p-2">
                       <Play className="h-4 w-4 text-white" />
