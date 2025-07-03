@@ -12,7 +12,7 @@ export const mediaStorageVPS = {
         ...item,
         _id: item._id?.toString(),
         id: item.id || item._id?.toString()
-      }))
+      })) as MediaItem[]
     } catch (error) {
       console.error('Erro ao buscar itens de mídia:', error)
       return []
@@ -85,7 +85,7 @@ export const mediaStorageVPS = {
           ...result,
           _id: result._id?.toString(),
           id: result.id || result._id?.toString()
-        }
+        } as MediaItem
       }
 
       return null
@@ -126,7 +126,7 @@ export const mediaStorageVPS = {
         ...item,
         _id: item._id?.toString(),
         id: item.id || item._id?.toString()
-      }))
+      })) as MediaItem[]
     } catch (error) {
       console.error('Erro ao buscar por categoria:', error)
       return []
@@ -143,7 +143,7 @@ export const mediaStorageVPS = {
         ...item,
         _id: item._id?.toString(),
         id: item.id || item._id?.toString()
-      }))
+      })) as MediaItem[]
     } catch (error) {
       console.error('Erro ao buscar por tipo:', error)
       return []

@@ -117,7 +117,13 @@ setIsUploading(true);
 
     setUploadProgress(20);
 
-    const response = await fetch("/api/upload-media-vps", {
+    // ✅ ALTERAÇÃO: Enviar diretamente para a VPS
+    const vpsApiUrl = process.env.NEXT_PUBLIC_UPLOADS_API_URL;
+    if (!vpsApiUrl) {
+      throw new Error("A URL de upload da VPS não está configurada.");
+    }
+
+    const response = await fetch(`${vpsApiUrl}/upload`, {
       method: "POST",
       body: formData,
     });
