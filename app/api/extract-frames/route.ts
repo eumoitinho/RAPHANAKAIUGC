@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const UPLOADS_API_URL = process.env.UPLOADS_API_URL || 'https://uploads.catalisti.com.br'
+const UPLOADS_API_URL = process.env.NEXT_PUBLIC_UPLOADS_API_URL|| 'https://uploads.catalisti.com.br'
 
 // Configurações para Vercel
 export const maxDuration = 60
