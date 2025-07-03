@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Play } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 interface Frame {
   id: number
@@ -36,7 +37,10 @@ export default function VideoThumbnailSelector({
 
   useEffect(() => {
     if (videoFile) {
-      extractFramesClient()
+      // Pequeno delay para garantir que os elementos estejam no DOM
+      setTimeout(() => {
+        extractFramesClient()
+      }, 100)
     }
   }, [videoFile])
 
@@ -48,30 +52,57 @@ export default function VideoThumbnailSelector({
       setError('')
       console.log('🎬 Extraindo frames no cliente:', videoFile.name)
       
+      // Verificar se os elementos existem com mais detalhes
       const video = videoRef.current
       const canvas = canvasRef.current
       
-      if (!video || !canvas) {
-        throw new Error('Elementos de vídeo/canvas não encontrados')
+      console.log('Video element:', video)
+      console.log('Canvas element:', canvas)
+      
+      if (!video) {
+        throw new Error('Elemento de vídeo não encontrado. Verifique se o componente foi renderizado corretamente.')
+      }
+      
+      if (!canvas) {
+        throw new Error('Elemento canvas não encontrado. Verifique se o componente foi renderizado corretamente.')
       }
       
       const ctx = canvas.getContext('2d')
       if (!ctx) {
-        throw new Error('Contexto 2D não disponível')
+        throw new Error('Contexto 2D não disponível no canvas')
       }
 
       // Criar URL do vídeo
       const videoUrl = URL.createObjectURL(videoFile)
       video.src = videoUrl
       
-      // Aguardar metadados do vídeo
+      console.log('📹 Carregando vídeo:', videoUrl)
+      
+      // Aguardar metadados do vídeo com timeout
       await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve
-        video.onerror = reject
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout ao carregar metadados do vídeo'))
+        }, 10000) // 10 segundos de timeout
+        
+        video.onloadedmetadata = () => {
+          clearTimeout(timeout)
+          resolve(undefined)
+        }
+        video.onerror = (e) => {
+          clearTimeout(timeout)
+          reject(new Error(`Erro ao carregar vídeo: ${e}`))
+        }
+        
+        // Forçar o carregamento
+        video.load()
       })
       
       const duration = video.duration
       console.log('📹 Duração do vídeo:', duration, 'segundos')
+      
+      if (!duration || duration === 0) {
+        throw new Error('Não foi possível obter a duração do vídeo')
+      }
       
       // Definir canvas com tamanho apropriado
       canvas.width = 320
@@ -95,18 +126,47 @@ export default function VideoThumbnailSelector({
         // Navegar para o tempo específico
         video.currentTime = time
         
-        // Aguardar o frame carregar
-        await new Promise((resolve) => {
-          video.onseeked = resolve
+        // Aguardar o frame carregar com timeout
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error(`Timeout ao buscar frame em ${percent}%`))
+          }, 5000)
+          
+          video.onseeked = () => {
+            clearTimeout(timeout)
+            resolve(undefined)
+          }
+          video.onerror = (e) => {
+            clearTimeout(timeout)
+            reject(new Error(`Erro ao navegar para ${percent}%: ${e}`))
+          }
         })
+        
+        // Aguardar um pouco mais para garantir que o frame está carregado
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Limpar canvas antes de desenhar
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
         
         // Desenhar frame no canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         
+        // Verificar se algo foi desenhado
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const hasData = imageData.data.some(pixel => pixel !== 0)
+        
+        if (!hasData) {
+          console.warn(`⚠️ Frame ${i + 1} parece estar vazio`)
+        }
+        
         // Converter canvas para blob
-        const blob = await new Promise<Blob>((resolve) => {
+        const blob = await new Promise<Blob>((resolve, reject) => {
           canvas.toBlob((blob) => {
-            resolve(blob!)
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error(`Falha ao converter frame ${i + 1} para blob`))
+            }
           }, 'image/jpeg', 0.8)
         })
         
@@ -120,7 +180,7 @@ export default function VideoThumbnailSelector({
           blob
         })
         
-        console.log(`✅ Frame ${i + 1} extraído`)
+        console.log(`✅ Frame ${i + 1} extraído com sucesso`)
       }
       
       // Limpar URL do vídeo
@@ -129,6 +189,10 @@ export default function VideoThumbnailSelector({
       setFrames(extractedFrames)
       onFramesExtracted?.(extractedFrames)
       console.log('✅ Todos os frames extraídos:', extractedFrames.length)
+      
+      if (extractedFrames.length === 0) {
+        throw new Error('Nenhum frame foi extraído com sucesso')
+      }
       
     } catch (error) {
       console.error('❌ Erro ao extrair frames:', error)
@@ -149,6 +213,11 @@ export default function VideoThumbnailSelector({
       onThumbnailSelected(frame.blob)
       
       console.log('✅ Thumbnail selecionada:', frame.timestamp)
+      
+      toast({
+        title: "Thumbnail selecionada",
+        description: `Frame em ${frame.timestamp} definido como thumbnail`,
+      })
     } catch (error) {
       console.error('❌ Erro ao selecionar thumbnail:', error)
       setError('Erro ao selecionar thumbnail')
@@ -178,7 +247,7 @@ export default function VideoThumbnailSelector({
     return (
       <Card className="bg-[#1e1e1e] border-[#333333]">
         <CardContent className="p-6 text-center">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-red-400 mb-4 text-sm">{error}</p>
           <Button 
             onClick={extractFramesClient}
             className="bg-[#d87093] hover:bg-[#c06082]"
@@ -208,9 +277,21 @@ export default function VideoThumbnailSelector({
 
   return (
     <div>
-      {/* Elementos ocultos para processamento */}
-      <video ref={videoRef} style={{ display: 'none' }} />
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      {/* Elementos para processamento - agora visíveis mas ocultos */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <video 
+          ref={videoRef} 
+          preload="metadata"
+          muted
+          playsInline
+          style={{ width: '320px', height: '180px' }}
+        />
+        <canvas 
+          ref={canvasRef} 
+          width={320} 
+          height={180}
+        />
+      </div>
       
       <Card className="bg-[#1e1e1e] border-[#333333]">
         <CardHeader>
