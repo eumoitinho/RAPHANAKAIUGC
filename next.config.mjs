@@ -20,6 +20,10 @@ const nextConfig = {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
+    // Configurar limites para Server Actions
+    serverActions: {
+      bodySizeLimit: '50mb', // Aumentar limite para 50MB
+    },
   },
   // Configurar limites para Vercel
   api: {
@@ -45,6 +49,10 @@ const nextConfig = {
           {
             key: 'Access-Control-Allow-Headers',
             value: 'Content-Type, Authorization',
+          },
+          {
+            key: 'Access-Control-Max-Age',
+            value: '86400',
           },
         ],
       },

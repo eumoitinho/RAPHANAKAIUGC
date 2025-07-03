@@ -1,20 +1,26 @@
 "use server"
 
-import { mkdir } from "fs/promises"
-import { existsSync } from "fs"
-
-// Função para garantir que o diretório exista
-async function ensureDirectoryExists(dirPath: string) {
-  if (!existsSync(dirPath)) {
-    await mkdir(dirPath, { recursive: true })
-  }
-}
-
 export async function uploadFile(formData: FormData) {
-  const response = await fetch("/api/upload", {
-    method: "POST",
-    body: formData,
-  })
+  try {
+    // Usa a API route que redireciona para a VPS
+    const response = await fetch('/api/upload-media', {
+      method: 'POST',
+      body: formData
+    })
 
-  return response.json()
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Erro no upload')
+    }
+
+    const result = await response.json()
+    
+    if (result.success) {
+      console.log('✅ Upload realizado:', result.item)
+      return result.item
+    }
+  } catch (error) {
+    console.error('❌ Erro no upload:', error)
+    throw error
+  }
 }
