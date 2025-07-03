@@ -53,9 +53,27 @@ export default function VideoThumbnailSelector({
         body: formData
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers.get('content-type'))
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao extrair frames')
+        const responseText = await response.text()
+        console.error('Response text:', responseText)
+        
+        // Tentar parsear como JSON se possível
+        try {
+          const errorData = JSON.parse(responseText)
+          throw new Error(errorData.error || 'Erro ao extrair frames')
+        } catch {
+          throw new Error(`Erro ${response.status}: ${responseText.substring(0, 100)}...`)
+        }
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType?.includes('application/json')) {
+        const responseText = await response.text()
+        console.error('Resposta não é JSON:', responseText)
+        throw new Error('Resposta inválida do servidor (não é JSON)')
       }
 
       const result = await response.json()
@@ -65,7 +83,7 @@ export default function VideoThumbnailSelector({
         onFramesExtracted?.(result.frames)
         console.log('✅ Frames extraídos:', result.frames.length)
       } else {
-        throw new Error('Nenhum frame foi extraído')
+        throw new Error(result.error || 'Nenhum frame foi extraído')
       }
     } catch (error) {
       console.error('❌ Erro ao extrair frames:', error)

@@ -12,16 +12,64 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData()
     
+    // Verificar se o vídeo foi enviado
+    const video = formData.get('video') as File
+    if (!video) {
+      return NextResponse.json(
+        { error: 'Nenhum vídeo enviado' },
+        { status: 400 }
+      )
+    }
+
+    console.log('📄 Vídeo recebido:', video.name, 'Tamanho:', video.size, 'bytes')
+
     // Reenviar diretamente para a VPS
     const response = await fetch(`${UPLOADS_API_URL}/video/frames`, {
       method: 'POST',
       body: formData
     })
 
+    console.log('Status da VPS:', response.status)
+    console.log('Content-Type:', response.headers.get('content-type'))
+
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ Erro da VPS:', errorText)
-      throw new Error(`VPS Error: ${response.status}`)
+      const responseText = await response.text()
+      console.error('❌ Erro da VPS:', responseText)
+      
+      // Tentar extrair mensagem de erro se for HTML
+      let errorMessage = `VPS Error: ${response.status}`
+      
+      if (responseText.includes('<title>')) {
+        // É uma página de erro HTML
+        const titleMatch = responseText.match(/<title>(.*?)<\/title>/i)
+        if (titleMatch) {
+          errorMessage = titleMatch[1]
+        }
+      } else {
+        // Tentar como JSON
+        try {
+          const errorData = JSON.parse(responseText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          errorMessage = responseText.substring(0, 100)
+        }
+      }
+      
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      )
+    }
+
+    const contentType = response.headers.get('content-type')
+    if (!contentType?.includes('application/json')) {
+      const responseText = await response.text()
+      console.error('❌ Resposta não é JSON:', responseText.substring(0, 200))
+      
+      return NextResponse.json(
+        { error: 'Servidor VPS retornou resposta inválida (não é JSON)' },
+        { status: 500 }
+      )
     }
 
     const result = await response.json()
