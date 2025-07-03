@@ -3,7 +3,7 @@
 export async function uploadFile(formData: FormData) {
   try {
     // Usa a API route que redireciona para a VPS
-    const response = await fetch('/api/upload-media', {
+    const response = await fetch('/api/upload-media-vps', {
       method: 'POST',
       body: formData
     })
