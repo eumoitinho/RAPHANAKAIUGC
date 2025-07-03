@@ -64,118 +64,120 @@ export function MediaUploaderVPS() {
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    // Enhanced validation
-    if (!mediaFile || !title || selectedCategories.length === 0) {
-      toast({
-        title: "Erro de validação",
-        description: "Por favor, preencha todos os campos obrigatórios",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Para vídeos, verificar se thumbnail foi selecionada
-    if (mediaType === "video" && !selectedThumbnail) {
-      toast({
-        title: "Thumbnail necessária",
-        description: "Por favor, selecione uma thumbnail para o vídeo",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check file size limits
-    const maxVpsSize = 500 * 1024 * 1024 // 500MB
-
-    if (mediaFile.size > maxVpsSize) {
-      toast({
-        title: "Arquivo muito grande",
-        description: `Arquivo de ${(mediaFile.size / 1024 / 1024).toFixed(2)}MB excede o limite de 500MB`,
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUploading(true)
-    setUploadProgress(10)
-
-    try {
-      // Criar FormData para envio
-      const formData = new FormData()
-      formData.append("file", mediaFile)
-      formData.append("title", title)
-      formData.append("description", description)
-      formData.append("fileType", mediaType)
-      formData.append("categories", JSON.stringify(selectedCategories))
-      
-      // Adicionar thumbnail se for vídeo
-      if (mediaType === "video" && selectedThumbnail) {
-        formData.append("thumbnail", selectedThumbnail, "thumbnail.jpg")
-      }
-
-      setUploadProgress(20)
-
-      // Fazer upload para VPS
-      const response = await fetch("/api/upload-media-vps", {
-        method: "POST",
-        body: formData,
-      })
-
-      setUploadProgress(80)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Falha no upload")
-      }
-
-      const result = await response.json()
-      console.log("Upload VPS concluído:", result)
-
-      setUploadProgress(100)
-
-      toast({
-        title: "Upload completo",
-        description: `${mediaType === "video" ? "Vídeo" : "Foto"} enviado com sucesso para VPS!`,
-      })
-
-      setTimeout(() => {
-        setIsUploading(false)
-        setUploadSuccess(true)
-
-        // Reset form after success
-        setTimeout(() => {
-          setTitle("")
-          setDescription("")
-          setSelectedCategories([])
-          setMediaFile(null)
-          setMediaPreview(null)
-          setSelectedThumbnail(null)
-          setThumbnailPreview("")
-          setUploadSuccess(false)
-          setUploadProgress(0)
-        }, 2000)
-      }, 1000)
-    } catch (error) {
-      console.error("Erro no upload VPS:", error)
-      setIsUploading(false)
-      setUploadProgress(0)
-
-      let errorMessage = "Ocorreu um erro durante o upload"
-      
-      if (error instanceof Error) {
-        errorMessage = error.message
-      }
-
-      toast({
-        title: "Erro no upload",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    }
+  if (!mediaFile || !title || selectedCategories.length === 0) {
+    toast({
+      title: "Erro de validação",
+      description: "Por favor, preencha todos os campos obrigatórios",
+      variant: "destructive",
+    });
+    return;
   }
+
+  if (mediaType === "video" && !selectedThumbnail) {
+    toast({
+      title: "Thumbnail necessária",
+      description: "Por favor, selecione uma thumbnail para o vídeo",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const maxVpsSize = 500 * 1024 * 1024; // 500MB
+  let totalSize = mediaFile.size;
+  if (selectedThumbnail) {
+    totalSize += selectedThumbnail.size;
+  }
+  totalSize += new Blob([title, description, JSON.stringify(selectedCategories)]).size;
+
+  if (totalSize > maxVpsSize) {
+    toast({
+      title: "Payload muito grande",
+      description: `O tamanho total dos dados (${(totalSize / 1024 / 1024).toFixed(2)}MB) excede o limite de 500MB`,
+      variant: "destructive",
+    });
+    return;
+  }
+
+setIsUploading(true);
+  setUploadProgress(10);
+
+  try {
+    const formData = new FormData();
+    formData.append("file", mediaFile);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("fileType", mediaType);
+    formData.append("categories", JSON.stringify(selectedCategories));
+    if (mediaType === "video" && selectedThumbnail) {
+      formData.append("thumbnail", selectedThumbnail, "thumbnail.jpg");
+    }
+
+    setUploadProgress(20);
+
+    const response = await fetch("/api/upload-media-vps", {
+      method: "POST",
+      body: formData,
+    });
+
+    setUploadProgress(80);
+
+    if (!response.ok) {
+      let errorMessage = `Falha no upload: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (jsonError) {
+        const errorText = await response.text();
+        errorMessage = errorText.substring(0, 100) || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log("Upload VPS concluído:", result);
+
+    setUploadProgress(100);
+
+    toast({
+      title: "Upload completo",
+      description: `${mediaType === "video" ? "Vídeo" : "Foto"} enviado com sucesso para VPS!`,
+    });
+
+    setTimeout(() => {
+      setIsUploading(false);
+      setUploadSuccess(true);
+      setTimeout(() => {
+        setTitle("");
+        setDescription("");
+        setSelectedCategories([]);
+        setMediaFile(null);
+        setMediaPreview(null);
+        setSelectedThumbnail(null);
+        setThumbnailPreview("");
+        setUploadSuccess(false);
+        setUploadProgress(0);
+      }, 2000);
+    }, 1000);
+  } catch (error) {
+    console.error("Erro no upload VPS:", error);
+    setIsUploading(false);
+    setUploadProgress(0);
+
+    let errorMessage = "Ocorreu um erro durante o upload";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    toast({
+      title: "Erro no upload",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  }
+};
 
   return (
     <div className="space-y-6">
