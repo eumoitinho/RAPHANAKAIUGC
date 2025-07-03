@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, Flame } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
+import { VideoPlayer } from "./videoplayer"
 
 // Add these keyframes for animations
 const fadeInAnimation = `
@@ -163,6 +164,36 @@ export function Portfolio() {
       setActiveCategories(activeCategories.filter((c) => c !== category))
     } else {
       setActiveCategories([...activeCategories, category])
+    }
+  }
+
+  const renderMediaItem = (item: MediaItem) => {
+    if (item.fileType === "video") {
+      return (
+        <VideoPlayer
+          src={item.fileUrl}
+          thumbnail={item.thumbnailUrl}
+          title={item.title}
+          className="w-full h-full"
+        />
+      )
+    } else {
+      return (
+        <div className="relative w-full h-full overflow-hidden">
+          <Image
+            src={item.fileUrl}
+            alt={item.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            onError={(e) => {
+              console.error('Erro ao carregar imagem:', e)
+              const target = e.target as HTMLImageElement
+              target.src = '/placeholder.jpg'
+            }}
+          />
+        </div>
+      )
     }
   }
 
@@ -339,170 +370,44 @@ export function Portfolio() {
 
         {/* Portfolio Grid */}
         {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {filteredItems.map((item) => (
           <div
-            className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-1000 delay-400 transform ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
-            }`}
+            key={item.id}
+            className="group bg-[#1a1a1a] rounded-lg overflow-hidden hover:bg-[#2a2a2a] transition-all duration-300"
           >
-            {filteredItems.length > 0 ? (
-              filteredItems.slice(0, visibleItems).map((item, index) => (
-                <div
-                  key={item.id}
-                  className="relative overflow-hidden rounded-lg bg-[#1e1e1e] group shadow-md hover:shadow-lg transition-all duration-500 hover:translate-y-[-4px]"
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animation: `fadeIn 0.5s ease-in-out ${index * 100}ms both`,
-                  }}
-                >
-                  {item.fileType === "video" ? (
-                    <div className="aspect-[9/16] relative">
-                      <video
-                        ref={(el) => {
-                          if (el) videoRefs.current[item.id] = el
-                        }}
-                        poster={item.thumbnailUrl || "/placeholder.svg?height=400&width=300"}
-                        src={item.fileUrl}
-                        muted={isMuted}
-                        loop
-                        playsInline
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        onEnded={handleVideoEnded}
-                        onError={(e) => console.error("Video loading error:", e, item.fileUrl)}
-                      />
-
-                      {/* Most viewed badge */}
-                      {mostViewedItem && mostViewedItem.id === item.id && (
-                        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full flex items-center gap-1 z-20 animate-pulse">
-                          <Flame size={14} className="animate-pulse" />
-                          <span className="text-xs font-medium">Mais visto</span>
-                        </div>
-                      )}
-
-                      {/* Video Controls - Always visible */}
-                      <div className="absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-b from-black/40 via-transparent to-black/70">
-                        {/* Top controls */}
-                        <div className="flex justify-between items-start">
-                          <div className="bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
-                            {item.views} views
-                          </div>
-
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={toggleMute}
-                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
-                            >
-                              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                            </button>
-
-                            <a
-                              href={item.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white hover:bg-[#d87093]/80 transition-colors"
-                            >
-                              <Maximize size={16} />
-                            </a>
-                          </div>
-                        </div>
-
-                        {/* Center play button */}
-                        <button
-                          onClick={() => togglePlay(item.id)}
-                          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center rounded-full bg-[#d87093]/80 text-white hover:bg-[#d87093] transition-all duration-300 hover:scale-110 group-hover:animate-pulse"
-                        >
-                          {isPlaying === item.id ? <Pause size={24} /> : <Play size={24} />}
-                        </button>
-
-                        {/* Bottom info - Always visible */}
-                        <div className="bg-black/60 backdrop-blur-sm p-3 rounded">
-                          <h3 className="font-medium text-white">{item.title}</h3>
-                          {item.description && (
-                            <p className="text-sm text-gray-300 mt-1 line-clamp-2">{item.description}</p>
-                          )}
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.categories.map((cat) => (
-                              <span
-                                key={cat}
-                                className="text-xs px-2 py-0.5 bg-[#d87093]/20 rounded-full text-[#d87093]"
-                              >
-                                {cat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="aspect-[9/16] relative">
-                      <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                        <Image
-                          src={item.fileUrl || "/placeholder.svg?height=400&width=300"}
-                          alt={item.title}
-                          fill
-                          className="object-cover transition-transform duration-700 group-hover:scale-105"
-                          onError={(e) => {
-                            console.error("Image loading error:", e, item.fileUrl)
-                            // Fallback to placeholder if image fails to load
-                            ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=400&width=300"
-                          }}
-                        />
-                      </div>
-
-                      {/* Most viewed badge */}
-                      {mostViewedItem && mostViewedItem.id === item.id && (
-                        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full flex items-center gap-1 z-20 animate-pulse">
-                          <Flame size={14} className="animate-pulse" />
-                          <span className="text-xs font-medium">Mais visto</span>
-                        </div>
-                      )}
-
-                      {/* Views counter */}
-                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs">
-                        {item.views} views
-                      </div>
-
-                      {/* Image Overlay - Always visible */}
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 flex flex-col justify-end p-4">
-                        <div className="bg-black/60 backdrop-blur-sm p-3 rounded">
-                          <h3 className="font-medium text-white">{item.title}</h3>
-                          {item.description && (
-                            <p className="text-sm text-gray-300 mt-1 line-clamp-2">{item.description}</p>
-                          )}
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.categories.map((cat) => (
-                              <span
-                                key={cat}
-                                className="text-xs px-2 py-0.5 bg-[#d87093]/20 rounded-full text-[#d87093]"
-                              >
-                                {cat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-10 text-gray-400">
-                {mediaItems.length === 0 ? (
-                  <>
-                    Nenhum item encontrado. Adicione conteúdo no painel de administração.
-                    <p className="mt-2 text-sm">
-                      Status da API: {isLoading ? "Carregando..." : "Concluído"} | Itens totais: {mediaItems.length} |
-                      Filtrados: {filteredItems.length}
-                    </p>
-                  </>
-                ) : (
-                  "Nenhum item encontrado com os filtros selecionados."
-                )}
+            <div className="aspect-video relative">
+              {renderMediaItem(item)}
+            </div>
+            
+            <div className="p-6">
+              <h3 className="text-xl font-semibold mb-2 text-white group-hover:text-[#d87093] transition-colors">
+                {item.title}
+              </h3>
+              {item.description && (
+                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                  {item.description}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {item.categories.map((category) => (
+                  <span
+                    key={category}
+                    className="px-2 py-1 bg-[#d87093] bg-opacity-20 text-[#d87093] text-xs rounded-full"
+                  >
+                    {category}
+                  </span>
+                ))}
               </div>
-            )}
+              <div className="text-xs text-gray-500">
+                {item.views} visualizações
+              </div>
+            </div>
           </div>
+        ))}
+      </div>
         )}
 
-        {/* Load More Button - Only show if we have items */}
         {!isLoading && hasMore && (
           <div
             className={`flex justify-center mt-12 transition-all duration-1000 delay-600 transform ${
