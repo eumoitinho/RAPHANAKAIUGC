@@ -113,6 +113,9 @@ importers:
       embla-carousel-react:
         specifier: latest
         version: 8.6.0(react@19.1.0)
+      ffmpeg-static:
+        specifier: ^5.2.0
+        version: 5.2.0
       firebase-admin:
         specifier: ^12.0.0
         version: 12.7.0
