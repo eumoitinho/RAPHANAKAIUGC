@@ -6,6 +6,12 @@ const UPLOADS_API_URL = process.env.UPLOADS_API_URL || 'https://uploads.catalist
 export const maxDuration = 60
 export const dynamic = 'force-dynamic' // ✅ CORRIGIDO: era 'force_dynamic'
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('📤 Redirecionando upload para VPS:', UPLOADS_API_URL)
