@@ -94,52 +94,28 @@ export function Navbar() {
                     Serviços
                   </button>
                 </li>
-                <li>
-                  <button
-                    onClick={() => scrollToSection("contato")}
-                    className={`text-sm uppercase tracking-wider hover:text-[#d87093] transition-colors ${
-                      activeSection === "contato" ? "text-[#d87093]" : "text-white"
-                    }`}
-                  >
-                    Contato
-                  </button>
-                </li>
+                
               </ul>
 
               <Button
                 onClick={() => scrollToSection("contato")}
                 className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-6 transition-transform hover:scale-105"
               >
-                Agendar
+                Contato
               </Button>
             </nav>
 
             {/* Social Icons - Desktop */}
             <div className="hidden md:flex items-center space-x-4">
               <a
-                href="https://instagram.com"
+                href="https://instagram.com/raphanakai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white hover:text-[#d87093] transition-colors"
               >
                 <Instagram size={20} />
               </a>
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-[#d87093] transition-colors"
-              >
-                <Facebook size={20} />
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-[#d87093] transition-colors"
-              >
-                <Youtube size={20} />
-              </a>
+              
             </div>
 
             {/* Mobile Menu Button */}

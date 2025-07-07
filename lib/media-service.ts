@@ -1,7 +1,32 @@
+
 import { getMediaCollection, MediaItem } from './mongodb'
 import { ObjectId } from 'mongodb'
 
 export class MediaService {
+  async getMediaByFileName(fileName: string): Promise<MediaItem | null> {
+    const collection = await getMediaCollection();
+    const item = await collection.findOne({ fileName });
+    if (!item) return null;
+    const { _id, ...rest } = item;
+    return {
+      ...rest,
+      _id: _id?.toString(),
+      id: _id?.toString() || item.id,
+      title: item.title || '',
+      description: item.description || '',
+      fileUrl: item.fileUrl || '',
+      thumbnailUrl: item.thumbnailUrl || '',
+      fileType: item.fileType || 'photo',
+      categories: item.categories || [],
+      dateCreated: item.dateCreated || new Date(),
+      views: typeof item.views === 'number' ? item.views : 0,
+      fileName: item.fileName || '',
+      fileSize: item.fileSize || 0,
+      duration: item.duration,
+      dimensions: item.dimensions,
+      optimized: typeof item.optimized === 'boolean' ? item.optimized : false
+    };
+  }
   async getAllMedia(): Promise<MediaItem[]> {
     const collection = await getMediaCollection()
     const items = await collection.find({}).sort({ dateCreated: -1 }).toArray()

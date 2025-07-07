@@ -126,6 +126,11 @@ export function Pricing() {
                       ? "bg-[#d87093] hover:bg-[#c45c7c] text-white"
                       : "bg-[#333333] hover:bg-[#444444] text-white"
                   }`}
+                  onClick={() => {
+                    const msg = encodeURIComponent(`Olá Rapha, queria saber mais sobre o ${plan.name} (${plan.description})!`);
+                    const url = `https://wa.me/5518981050201?text=${msg}`;
+                    window.open(url, '_blank');
+                  }}
                 >
                   Selecionar Plano
                 </Button>

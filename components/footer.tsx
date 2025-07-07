@@ -61,29 +61,14 @@ export function Footer() {
             </p>
             <div className="flex space-x-4">
               <a
-                href="https://instagram.com"
+                href="https://instagram.com/raphanakai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
               >
                 <Instagram size={18} />
               </a>
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
-              >
-                <Facebook size={18} />
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
-              >
-                <Youtube size={18} />
-              </a>
+              
             </div>
           </div>
 

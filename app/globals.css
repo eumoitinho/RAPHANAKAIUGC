@@ -83,3 +83,14 @@
     box-shadow: 0 0 5px rgba(216, 112, 147, 0.5);
   }
 }
+
+/* Custom aspect ratios for video stories */
+@layer utilities {
+  .aspect-stories {
+    aspect-ratio: 9 / 16;
+  }
+  
+  .aspect-video-vertical {
+    aspect-ratio: 9 / 16;
+  }
+}

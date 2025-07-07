@@ -159,7 +159,7 @@ export function Contact() {
                   </div>
                   <div>
                     <h4 className="text-lg font-medium">Localização</h4>
-                    <p className="text-white/70 mt-1">São Paulo, SP - Brasil</p>
+                    <p className="text-white/70 mt-1">Ilhabela, SP - Brasil</p>
                   </div>
                 </div>
 
@@ -169,7 +169,7 @@ export function Contact() {
                   </div>
                   <div>
                     <h4 className="text-lg font-medium">Telefone</h4>
-                    <p className="text-white/70 mt-1">+55 (11) 99999-9999</p>
+                    <p className="text-white/70 mt-1">+55 (18) 98105-0201</p>
                   </div>
                 </div>
 
@@ -179,38 +179,23 @@ export function Contact() {
                   </div>
                   <div>
                     <h4 className="text-lg font-medium">Email</h4>
-                    <p className="text-white/70 mt-1">contato@raphanakai.com.br</p>
+                    <p className="text-white/70 mt-1">rncbs2002@gmail.com</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-10">
-                <h4 className="text-lg font-medium mb-4">Me siga nas redes sociais</h4>
+                <h4 className="text-lg font-medium mb-4">Me siga no Instagram</h4>
                 <div className="flex space-x-4">
                   <a
-                    href="https://instagram.com"
+                    href="https://instagram.com/raphanakai"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
                   >
                     <Instagram size={18} />
                   </a>
-                  <a
-                    href="https://facebook.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
-                  >
-                    <Facebook size={18} />
-                  </a>
-                  <a
-                    href="https://youtube.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
-                  >
-                    <Youtube size={18} />
-                  </a>
+                  
                 </div>
               </div>
             </div>

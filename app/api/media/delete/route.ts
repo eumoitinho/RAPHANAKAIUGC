@@ -9,14 +9,16 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const filename = searchParams.get('filename')
 
-    if (!id) {
-      return NextResponse.json({ error: 'Media ID is required' }, { status: 400 })
+    let mediaItem = null;
+    if (id) {
+      mediaItem = await mediaService.getMediaById(id)
+    } else if (filename) {
+      // Buscar pelo fileName
+      mediaItem = await mediaService.getMediaByFileName(filename)
     }
 
-    // Buscar item para obter caminhos dos arquivos
-    const mediaItem = await mediaService.getMediaById(id)
-    
     if (!mediaItem) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
@@ -36,7 +38,7 @@ export async function DELETE(request: Request) {
     }
 
     // Deletar do banco de dados
-    const success = await mediaService.deleteMedia(id)
+    const success = await mediaService.deleteMedia(mediaItem.id || mediaItem._id)
 
     if (!success) {
       return NextResponse.json({ error: 'Failed to delete from database' }, { status: 500 })

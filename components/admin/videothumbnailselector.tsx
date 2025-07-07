@@ -111,13 +111,13 @@ export default function VideoThumbnailSelector({
       video.style.position = 'absolute'
       video.style.left = '-9999px'
       video.style.top = '-9999px'
-      video.style.width = '320px'
-      video.style.height = '180px'
+      video.style.width = '1920px'
+      video.style.height = '1080px'
       
       // Criar canvas element dinamicamente
       const canvas = document.createElement('canvas')
-      canvas.width = 320
-      canvas.height = 180
+      canvas.width = 1920
+      canvas.height = 1080
       canvas.style.position = 'absolute'
       canvas.style.left = '-9999px'
       canvas.style.top = '-9999px'
@@ -223,8 +223,23 @@ export default function VideoThumbnailSelector({
         // Limpar canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         
-        // Desenhar frame no canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        // Calcular dimensões para manter proporção 16:9
+        const videoWidth = video.videoWidth || 1920
+        const videoHeight = video.videoHeight || 1080
+        const canvasWidth = canvas.width
+        const canvasHeight = canvas.height
+        
+        // Calcular scale para manter proporção
+        const scale = Math.min(canvasWidth / videoWidth, canvasHeight / videoHeight)
+        const scaledWidth = videoWidth * scale
+        const scaledHeight = videoHeight * scale
+        
+        // Centralizar na canvas
+        const x = (canvasWidth - scaledWidth) / 2
+        const y = (canvasHeight - scaledHeight) / 2
+        
+        // Desenhar frame no canvas mantendo proporção
+        ctx.drawImage(video, x, y, scaledWidth, scaledHeight)
         
         // Verificar se tem conteúdo
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -370,8 +385,8 @@ export default function VideoThumbnailSelector({
           position: 'absolute', 
           left: '-9999px', 
           top: '-9999px',
-          width: '320px',
-          height: '180px',
+          width: '1920px',
+          height: '1080px',
           visibility: 'hidden'
         }}
       >
@@ -380,12 +395,12 @@ export default function VideoThumbnailSelector({
           preload="metadata"
           muted
           playsInline
-          style={{ width: '320px', height: '180px' }}
+          style={{ width: '1920px', height: '1080px' }}
         />
         <canvas 
           ref={canvasRef} 
-          width={320} 
-          height={180}
+          width={1920} 
+          height={1080}
         />
       </div>
       

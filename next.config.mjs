@@ -25,14 +25,7 @@ const nextConfig = {
       bodySizeLimit: '50mb', // Aumentar limite para 50MB
     },
   },
-  // Configurar limites para Vercel
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb', // Reduzido para 50MB
-    },
-    responseLimit: '50mb',
-  },
-  // Configurar headers para uploads
+  // Configurar headers para uploads e arquivos estáticos
   async headers() {
     return [
       {
@@ -53,6 +46,52 @@ const nextConfig = {
           {
             key: 'Access-Control-Max-Age',
             value: '86400',
+          },
+        ],
+      },
+      {
+        // Headers para arquivos de vídeo
+        source: '/uploads/videos/:path*',
+        headers: [
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+          {
+            key: 'Content-Type',
+            value: 'video/mp4',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600',
+          },
+        ],
+      },
+      {
+        // Headers para thumbnails
+        source: '/uploads/thumbnails/:path*',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'image/jpeg',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400',
+          },
+        ],
+      },
+      {
+        // Headers para fotos
+        source: '/uploads/photos/:path*',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'image/webp',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400',
           },
         ],
       },
