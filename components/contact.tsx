@@ -179,7 +179,7 @@ export function Contact() {
                   </div>
                   <div>
                     <h4 className="text-lg font-medium">Email</h4>
-                    <p className="text-white/70 mt-1">rncbs2002@gmail.com</p>
+                    <p className="text-white/70 mt-1">raphanakai@gmail.com</p>
                   </div>
                 </div>
               </div>

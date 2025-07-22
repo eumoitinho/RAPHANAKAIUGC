@@ -80,8 +80,7 @@ export function Pricing() {
           <span className="text-[#d87093] uppercase tracking-wider text-sm font-medium">Planos</span>
           <h2 className="text-4xl md:text-5xl font-serif italic mt-2 mb-6">Invista no seu projeto</h2>
           <p className="text-white/80 text-lg">
-            Escolha o plano que melhor atende às necessidades do seu projeto e comece a criar imagens impactantes que
-            comunicam sua mensagem de forma autêntica.
+            Escolha o plano que mais combina com o seu projeto e vamos criar juntos conteúdos com propósito.
           </p>
         </div>
 

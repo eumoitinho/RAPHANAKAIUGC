@@ -88,7 +88,7 @@ export function FeaturedSection() {
             <div className="space-y-6 opacity-0">
               <div className="bg-[#d87093]/20 backdrop-blur-sm border border-[#d87093]/30 rounded-full px-4 py-1.5 flex items-center gap-2 w-fit">
                 <Sparkles className="h-4 w-4 text-[#d87093] animate-pulse" />
-                <span className="text-sm font-medium text-white">Premium Content Creator</span>
+                <span className="text-sm font-medium text-white">UGC Creator</span>
               </div>
             </div>
           </div>
@@ -157,7 +157,7 @@ export function FeaturedSection() {
             <div className="flex items-center gap-2 animate-[fadeIn_0.4s_ease-in-out]">
               <div className="bg-[#d87093]/20 backdrop-blur-sm border border-[#d87093]/30 rounded-full px-4 py-1.5 flex items-center gap-2 w-fit">
                 <Sparkles className="h-4 w-4 text-[#d87093] animate-pulse" />
-                <span className="text-sm font-medium text-white">Premium Content Creator</span>
+                <span className="text-sm font-medium text-white">UGC Creator</span>
               </div>
             </div>
 
@@ -165,8 +165,7 @@ export function FeaturedSection() {
               {/* Heading with decorative elements */}
               <div className="relative">
                 <h2 className="text-2xl md:text-4xl font-serif uppercase tracking-wider text-[#d87093] font-medium mb-2 animate-[fadeIn_0.6s_ease-in-out] relative z-10">
-                  CRIAÇÃO DE CONTEÚDO
-                  <div className="absolute -right-8 -top-6 bg-gradient-to-r from-[#d87093] to-[#ff9eb7] text-white text-xs rounded-full px-2 py-1 flex items-center gap-1 animate-bounce"></div>
+                  
                 </h2>
               </div>
 
@@ -186,7 +185,7 @@ export function FeaturedSection() {
 
               {/* Stylized text with glow effect */}
               <div className="relative">
-                <p className="text-2xl md:text-4xl font-serif italic text-white animate-[fadeIn_1.4s_ease-in-out] relative z-10">
+                <p className="text-4xl text-[#fff5dc] md:text-5xl font-bold text-[#d87093] animate-[fadeIn_1.4s_ease-in-out] relative z-10">
                   CONEXÕES REAIS.
                 </p>
               </div>
@@ -196,8 +195,6 @@ export function FeaturedSection() {
             <div className="relative">
               <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-[#d87093] to-transparent rounded-full"></div>
               <p className="text-gray-300 max-w-lg animate-[fadeIn_1.6s_ease-in-out] pl-4 backdrop-blur-sm bg-black/20 p-4 rounded-lg border border-white/10">
-                Criação de conteúdo visual que conecta marcas com seu público de forma autêntica e impactante, criando
-                experiências memoráveis.
               </p>
             </div>
 

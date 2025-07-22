@@ -24,7 +24,7 @@ export function Hero() {
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <Image
-          src="/images/hero.png"
+          src="/images/hero.jpg"
           alt="Rapha Nakai Background"
           fill
           priority
@@ -41,17 +41,23 @@ export function Hero() {
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
           }`}
         >
-          
+          {/* Nome e Título */}
+          <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 animate-[fadeIn_1s_ease-in-out]">
+            Rapha Nakai
+          </h1>
+          <p className="text-2xl md:text-3xl text-[#d87093] mb-8 animate-[fadeIn_1.2s_ease-in-out]">
+            UGC Creator
+          </p>
 
           {/* Slogan or Brief Description */}
           <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-xl mx-auto">
-            Transformando ideias em experiências visuais impactantes.
+            Transformando ideias em experiências visuais.
           </p>
 
           {/* Call to Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-[fadeIn_1.6s_ease-in-out]">
             <Button
-              onClick={() => scrollToSection("featured")}
+              onClick={() => scrollToSection("projects")}
               className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8 py-6 text-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(216,112,147,0.5)]"
             >
               Ver Projetos

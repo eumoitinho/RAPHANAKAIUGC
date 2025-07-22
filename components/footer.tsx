@@ -127,9 +127,9 @@ export function Footer() {
           <div>
             <h3 className="text-xl font-medium mb-4">Contato</h3>
             <ul className="space-y-3">
-              <li className="text-white/70">São Paulo, SP - Brasil</li>
-              <li className="text-white/70">+55 (11) 99999-9999</li>
-              <li className="text-white/70">contato@raphanakai.com.br</li>
+              <li className="text-white/70">Ilhabela, SP - Brasil</li>
+              <li className="text-white/70">(18) 98105-0201</li>
+              <li className="text-white/70">raphanakai@gmail.com</li>
             </ul>
           </div>
         </div>

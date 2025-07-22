@@ -29,7 +29,7 @@ export function Services() {
     {
       icon: <Camera className="h-10 w-10" />,
       title: "Fotografia",
-      description: "Captação de imagens profissionais para sua marca, produtos ou serviços.",
+      description: "Captação de imagens em alta qualidade para sua marca, produtos ou serviços.",
     },
     {
       icon: <Film className="h-10 w-10" />,
@@ -39,7 +39,7 @@ export function Services() {
     {
       icon: <Video className="h-10 w-10" />,
       title: "Vídeos Promocionais",
-      description: "Produção de vídeos que destacam o melhor da sua marca e produtos.",
+      description: "Produção de vídeos focados em ADS para impulsionar em tráfego pago.",
     },
     {
       icon: <Palette className="h-10 w-10" />,
@@ -65,8 +65,7 @@ export function Services() {
           <span className="text-[#d87093] uppercase tracking-wider text-sm font-medium">Serviços</span>
           <h2 className="text-4xl md:text-5xl font-serif italic mt-2 mb-6">O que eu ofereço</h2>
           <p className="text-white/80 text-lg">
-            Soluções criativas para conectar sua marca com seu público através de conteúdo visual autêntico e
-            impactante.
+            Conteúdos visuais que dizem o que sua marca quer comunicar e o seu público precisa sentir
           </p>
         </div>
 
