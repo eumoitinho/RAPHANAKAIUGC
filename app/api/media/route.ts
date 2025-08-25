@@ -34,14 +34,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const thumbnailUrl = item.thumbnailUrl || (item as any).thumbnail || ""
       const dateCreated = item.dateCreated || (item as any).uploadDate || new Date().toISOString()
 
-      // Add protocol if missing
+      // Add protocol if missing (para URLs antigas)
+      // URLs do Supabase já vêm com protocolo completo
       let processedFileUrl = fileUrl
       let processedThumbnailUrl = thumbnailUrl
 
-      if (processedFileUrl && !processedFileUrl.startsWith("http")) {
+      // Apenas adicionar protocolo se for necessário e não for URL do Supabase
+      if (processedFileUrl && !processedFileUrl.startsWith("http") && !processedFileUrl.includes('supabase')) {
         processedFileUrl = `https://${processedFileUrl}`
       }
-      if (processedThumbnailUrl && !processedThumbnailUrl.startsWith("http")) {
+      if (processedThumbnailUrl && !processedThumbnailUrl.startsWith("http") && !processedThumbnailUrl.includes('supabase')) {
         processedThumbnailUrl = `https://${processedThumbnailUrl}`
       }
 

@@ -45,31 +45,75 @@ export async function POST(request: NextRequest) {
     let thumbnailUrl = fileUrl
     let thumbnailPath = ''
     
-    if (fileType === 'photo' || fileType === 'video') {
-      try {
-        // Para vídeos, vamos usar uma thumbnail padrão por enquanto
-        // Em produção, você precisaria extrair um frame do vídeo
-        if (fileType === 'photo') {
-          // Gerar thumbnail para imagem
-          const thumbnailBuffer = await sharp(buffer)
-            .resize(400, 600, { fit: 'cover' })
-            .jpeg({ quality: 80 })
-            .toBuffer()
+    try {
+      if (fileType === 'photo') {
+        // Gerar thumbnail para imagem
+        const thumbnailBuffer = await sharp(buffer)
+          .resize(400, 600, { fit: 'cover' })
+          .jpeg({ quality: 80 })
+          .toBuffer()
+        
+        const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
+        thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
+        
+        // Upload da thumbnail
+        await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
+          contentType: 'image/jpeg',
+        })
+        
+        thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
+      } else if (fileType === 'video') {
+        // Para vídeos, extrair frame em 1 segundo
+        try {
+          const ffmpeg = require('fluent-ffmpeg')
+          const path = require('path')
+          const fs = require('fs').promises
+          const os = require('os')
           
+          // Criar arquivo temporário para o vídeo
+          const tempVideoPath = path.join(os.tmpdir(), `temp_${uniqueFileName}`)
+          const tempThumbPath = path.join(os.tmpdir(), `thumb_${uniqueFileName}.jpg`)
+          
+          // Salvar vídeo temporariamente
+          await fs.writeFile(tempVideoPath, buffer)
+          
+          // Extrair frame
+          await new Promise((resolve, reject) => {
+            ffmpeg(tempVideoPath)
+              .screenshots({
+                timestamps: ['00:00:01'],
+                filename: path.basename(tempThumbPath),
+                folder: os.tmpdir(),
+                size: '400x600'
+              })
+              .on('end', resolve)
+              .on('error', reject)
+          })
+          
+          // Ler thumbnail gerada
+          const thumbnailBuffer = await fs.readFile(tempThumbPath)
+          
+          // Upload da thumbnail
           const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
           thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
           
-          // Upload da thumbnail
           await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
             contentType: 'image/jpeg',
           })
           
           thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
+          
+          // Limpar arquivos temporários
+          await fs.unlink(tempVideoPath).catch(() => {})
+          await fs.unlink(tempThumbPath).catch(() => {})
+        } catch (error) {
+          console.error('Error generating video thumbnail:', error)
+          // Se falhar, usar primeira frame como fallback ou placeholder
         }
-      } catch (error) {
-        console.error('Error generating thumbnail:', error)
-        // Se falhar, usa a imagem original como thumbnail
       }
+    } catch (error) {
+      console.error('Error generating thumbnail:', error)
+      // Se falhar, usa a imagem/vídeo original como thumbnail
     }
     
     // Obter dimensões da imagem/vídeo

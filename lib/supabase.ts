@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Configuração do Supabase usando as variáveis de ambiente
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vkhrmorqajgnzchenrpq.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraHJtb3JxYWpnbnpjaGVucnBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzA3NTcsImV4cCI6MjA3MTcwNjc1N30.fVVmziGoJ87CPeET59fVoar2zL0OvqgC2zIx3VLdjmY'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraHJtb3JxYWpnbnpjaGVucnBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjEzMDc1NywiZXhwIjoyMDcxNzA2NzU3fQ.hLhqBcrIaOAVs-cNAO1cDM3nN79l8mwAPyVyP-_ljQs'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // Cliente público para uso no frontend
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
