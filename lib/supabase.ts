@@ -44,6 +44,10 @@ export const uploadFile = async (
   file: File | Blob,
   options?: { upsert?: boolean; contentType?: string }
 ) => {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client not initialized')
+  }
+  
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
     .upload(path, file, {
@@ -60,6 +64,10 @@ export const uploadFile = async (
 }
 
 export const getPublicUrl = (bucket: string, path: string) => {
+  if (!supabase) {
+    return ''
+  }
+  
   const { data } = supabase.storage
     .from(bucket)
     .getPublicUrl(path)
@@ -68,6 +76,10 @@ export const getPublicUrl = (bucket: string, path: string) => {
 }
 
 export const deleteFile = async (bucket: string, paths: string[]) => {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client not initialized')
+  }
+  
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
     .remove(paths)
@@ -82,6 +94,11 @@ export const deleteFile = async (bucket: string, paths: string[]) => {
 
 // Função para criar os buckets se não existirem
 export const initializeStorageBuckets = async () => {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    return
+  }
+  
   const buckets = [STORAGE_BUCKETS.VIDEOS, STORAGE_BUCKETS.IMAGES, STORAGE_BUCKETS.THUMBNAILS]
   
   for (const bucketName of buckets) {

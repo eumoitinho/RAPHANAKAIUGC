@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { Upload, X, FileVideo, FileImage, Loader2, CheckCircle } from "lucide-react"
+import { Upload, X, FileVideo, FileImage, Loader2, CheckCircle, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { VideoThumbnailSelector } from "./video-thumbnail-selector"
 
 type FileWithPreview = {
   file: File

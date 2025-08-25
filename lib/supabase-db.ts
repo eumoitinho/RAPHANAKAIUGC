@@ -87,6 +87,11 @@ export async function getAllMedia() {
 
 // Buscar mídia por ID
 export async function getMediaById(id: string) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    return null
+  }
+  
   const { data, error } = await supabaseAdmin
     .from('media')
     .select('*')
@@ -103,6 +108,11 @@ export async function getMediaById(id: string) {
 
 // Criar nova mídia
 export async function createMedia(media: Omit<MediaItem, 'id' | 'created_at' | 'updated_at'>) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    throw new Error('Supabase not configured')
+  }
+  
   const { data, error } = await supabaseAdmin
     .from('media')
     .insert(media)
@@ -119,6 +129,11 @@ export async function createMedia(media: Omit<MediaItem, 'id' | 'created_at' | '
 
 // Atualizar mídia
 export async function updateMedia(id: string, updates: Partial<MediaItem>) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    throw new Error('Supabase not configured')
+  }
+  
   const { data, error } = await supabaseAdmin
     .from('media')
     .update({
@@ -139,6 +154,11 @@ export async function updateMedia(id: string, updates: Partial<MediaItem>) {
 
 // Deletar mídia
 export async function deleteMedia(id: string) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    throw new Error('Supabase not configured')
+  }
+  
   const { error } = await supabaseAdmin
     .from('media')
     .delete()
@@ -154,6 +174,11 @@ export async function deleteMedia(id: string) {
 
 // Incrementar views
 export async function incrementViews(id: string) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    return false
+  }
+  
   const { error } = await supabaseAdmin.rpc('increment_views', {
     media_id: id
   }).catch(() => {
@@ -171,5 +196,7 @@ export async function incrementViews(id: string) {
   return true
 }
 
-// Inicializar tabela
-createMediaTable().catch(console.error)
+// Inicializar tabela apenas se Supabase estiver configurado
+if (supabaseAdmin) {
+  createMediaTable().catch(console.error)
+}

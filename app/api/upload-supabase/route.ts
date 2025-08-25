@@ -4,11 +4,26 @@ import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/li
 import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
 
+// Configurar limite de tamanho
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '500mb',
+    },
+  },
+}
+
 // Inicializar buckets ao iniciar
 initializeStorageBuckets().catch(console.error)
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar se o Content-Length é muito grande
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 500 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large. Max 500MB allowed.' }, { status: 413 })
+    }
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const title = formData.get('title') as string
@@ -17,6 +32,11 @@ export async function POST(request: NextRequest) {
     
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    // Verificar tamanho do arquivo
+    if (file.size > 500 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large. Max 500MB allowed.' }, { status: 413 })
     }
 
     // Determinar o tipo de arquivo
@@ -28,9 +48,14 @@ export async function POST(request: NextRequest) {
     const uniqueFileName = `${uuidv4()}.${fileExtension}`
     const filePath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${uniqueFileName}`
     
-    // Converter File para Buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    // Para arquivos grandes, usar stream ao invés de buffer
+    let buffer: Buffer | null = null
+    
+    // Só converter para buffer se for imagem (para gerar thumbnail)
+    if (fileType === 'photo') {
+      const arrayBuffer = await file.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
+    }
     
     // Upload do arquivo principal
     console.log(`Uploading ${fileType} to Supabase Storage...`)
@@ -46,7 +71,7 @@ export async function POST(request: NextRequest) {
     let thumbnailPath = ''
     
     try {
-      if (fileType === 'photo') {
+      if (fileType === 'photo' && buffer) {
         // Gerar thumbnail para imagem
         const thumbnailBuffer = await sharp(buffer)
           .resize(400, 600, { fit: 'cover' })
@@ -63,13 +88,32 @@ export async function POST(request: NextRequest) {
         
         thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
       } else if (fileType === 'video') {
-        // Para vídeos, usar o primeiro frame como thumbnail
+        // Para vídeos, gerar thumbnail usando ffmpeg
+        const { generateVideoThumbnail } = await import('@/lib/video-utils')
+        
         try {
-          // Por enquanto, usar a URL do vídeo como thumbnail
-          // Em produção, você pode usar ffmpeg ou um serviço de thumbnail
-          thumbnailUrl = fileUrl
+          // Converter File para Buffer para o vídeo
+          const videoArrayBuffer = await file.arrayBuffer()
+          const videoBuffer = Buffer.from(videoArrayBuffer)
+          
+          // Gerar thumbnail do vídeo
+          const thumbnailBuffer = await generateVideoThumbnail(videoBuffer, file.name)
+          
+          if (thumbnailBuffer) {
+            const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
+            thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
+            
+            // Upload da thumbnail
+            await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
+              contentType: 'image/jpeg',
+            })
+            
+            thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
+          }
         } catch (error) {
           console.error('Error generating video thumbnail:', error)
+          // Fallback: usar primeira frame ou placeholder
+          thumbnailUrl = fileUrl
         }
       }
     } catch (error) {
