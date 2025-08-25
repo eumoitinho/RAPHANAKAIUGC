@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { Home, Film, ImageIcon, Settings, LogOut, Menu, X, ChevronDown, FolderOpen } from "lucide-react"
+import { Home, Film, ImageIcon, Settings, LogOut, Menu, X, ChevronDown, FolderOpen, Cloud, Database } from "lucide-react"
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -70,6 +70,25 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               </li>
 
+              <li>
+                <Link
+                  href="/admin"
+                  className="flex items-center px-4 py-3 text-gray-300 hover:bg-[#1e1e1e] hover:text-white"
+                >
+                  <Database size={20} className="min-w-[20px]" />
+                  <span className={`ml-3 ${!isSidebarOpen && "md:hidden"}`}>Arquivos VPS</span>
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  href="/admin/supabase"
+                  className="flex items-center px-4 py-3 text-gray-300 hover:bg-[#1e1e1e] hover:text-white"
+                >
+                  <Cloud size={20} className="min-w-[20px]" />
+                  <span className={`ml-3 ${!isSidebarOpen && "md:hidden"}`}>Supabase Storage</span>
+                </Link>
+              </li>
 
               <li>
                 <Link

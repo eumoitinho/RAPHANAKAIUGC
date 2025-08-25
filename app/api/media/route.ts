@@ -164,3 +164,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 }
+
+// DELETE - Remover mídia
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  console.log("🗑️ API: DELETE /api/media - Request received")
+
+  try {
+    const body = await request.json()
+    const { id } = body
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID is required", success: false },
+        { status: 400 }
+      )
+    }
+
+    console.log(`🗑️ API: Deleting media with ID: ${id}`)
+    await mediaService.deleteMedia(id)
+    console.log("✅ API: Media deleted successfully")
+
+    return NextResponse.json({
+      success: true,
+      message: "Media deleted",
+      timestamp: new Date().toISOString(),
+    })
+
+  } catch (error) {
+    console.error("❌ API: Error in DELETE request:", error)
+
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        success: false,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 },
+    )
+  }
+}

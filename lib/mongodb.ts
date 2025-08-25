@@ -27,8 +27,8 @@ export type MediaItem = {
   id: string
   title: string
   description: string
-  fileUrl: string
-  thumbnailUrl: string
+  fileUrl: string // URL do arquivo no Supabase Storage
+  thumbnailUrl: string // URL da thumbnail no Supabase Storage
   fileType: 'video' | 'photo'
   categories: string[]
   dateCreated: Date
@@ -41,4 +41,7 @@ export type MediaItem = {
     height: number
   }
   optimized: boolean
+  supabasePath?: string // Caminho do arquivo no Supabase Storage
+  supabaseThumbnailPath?: string // Caminho da thumbnail no Supabase Storage
+  storageProvider?: 'supabase' | 'local' // Identificar de onde vem o arquivo
 }
