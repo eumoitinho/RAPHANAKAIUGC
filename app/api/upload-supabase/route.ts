@@ -3,20 +3,12 @@ import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
 import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/lib/supabase-db'
 import { v4 as uuidv4 } from 'uuid'
 
-// Configurações da API
+// Configurações da API - CORRIGIDO PARA APP ROUTER
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutos
-export const preferredRegion = 'auto'
+export const dynamic = 'force-dynamic'
 
-// Configuração de tamanho máximo
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1gb',
-    },
-    responseLimit: false,
-  },
-}
+// NO APP ROUTER NÃO USA CONFIG, USA RUNTIME CONFIGS
 
 // UPLOAD DE FOTOS E VÍDEOS
 export async function POST(request: NextRequest) {

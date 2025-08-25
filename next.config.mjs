@@ -20,9 +20,9 @@ const nextConfig = {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
-    // Configurar limites para Server Actions
     serverActions: {
-      bodySizeLimit: '1gb', // Aumentar limite para 1GB para vídeos grandes
+      bodySizeLimit: '1gb',
+      allowedOrigins: ['*'] // Permitir todos os origins incluindo mobile
     },
   },
   // Configurações adicionais para uploads

@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/admin/layout"
 import { SupabaseMediaUploader } from "@/components/admin/supabase-media-uploader"
 import { SupabaseMediaManager } from "@/components/admin/supabase-media-manager"
 import { IPhoneUploader } from "@/components/admin/iphone-uploader"
+import { DirectSupabaseUploader } from "@/components/admin/direct-supabase-uploader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, FolderOpen, Cloud } from "lucide-react"
 
@@ -45,13 +46,25 @@ export default function SupabaseFilesPage() {
             <div className="bg-[#1a1a1a] rounded-lg p-6">
               <h2 className="text-xl font-medium mb-4">Upload de Mídia para Supabase</h2>
               
-              {/* Upload especial para iPhone - aparece automaticamente em dispositivos Apple */}
+              {/* UPLOAD DIRETO - FUNCIONA EM PRODUÇÃO E MOBILE SEM ERRO 413 */}
+              <div className="mb-6">
+                <DirectSupabaseUploader onUploadComplete={handleUploadComplete} />
+              </div>
+              
+              {/* Upload em chunks para arquivos muito grandes */}
               <div className="mb-6">
                 <IPhoneUploader onUploadComplete={handleUploadComplete} />
               </div>
               
-              {/* Upload padrão */}
-              <SupabaseMediaUploader onUploadComplete={handleUploadComplete} />
+              {/* Upload padrão (pode dar erro 413 em produção) */}
+              <details className="mb-6">
+                <summary className="text-sm text-gray-400 cursor-pointer hover:text-gray-300">
+                  Upload padrão (pode dar erro 413 em produção/mobile)
+                </summary>
+                <div className="mt-4">
+                  <SupabaseMediaUploader onUploadComplete={handleUploadComplete} />
+                </div>
+              </details>
             </div>
           </TabsContent>
 
