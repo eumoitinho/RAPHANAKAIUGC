@@ -1,32 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadFile, getPublicUrl, STORAGE_BUCKETS, initializeStorageBuckets } from '@/lib/supabase'
+import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
 import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/lib/supabase-db'
 import { v4 as uuidv4 } from 'uuid'
-import sharp from 'sharp'
 
-// Configurar limite de tamanho
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '500mb',
-    },
-  },
-}
-
-// Inicializar buckets ao iniciar
-initializeStorageBuckets().catch(console.error)
-
+// UPLOAD DE FOTOS E VÍDEOS
 export async function POST(request: NextRequest) {
   try {
-    // Log para debug
-    console.log('Upload request received')
+    console.log('📤 Upload iniciado...')
     
-    // Verificar se o Content-Length é muito grande
-    const contentLength = request.headers.get('content-length')
-    if (contentLength && parseInt(contentLength) > 500 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large. Max 500MB allowed.' }, { status: 413 })
+    // Verificar se Supabase está configurado
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Supabase não configurado. Verifique as variáveis de ambiente.' },
+        { status: 500 }
+      )
     }
-    
+
+    // Pegar dados do formulário
     const formData = await request.formData()
     const file = formData.get('file') as File
     const title = formData.get('title') as string
@@ -35,121 +25,121 @@ export async function POST(request: NextRequest) {
     const customThumbnail = formData.get('thumbnail') as File | null
     
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
     }
 
-    // Verificar tamanho do arquivo
-    if (file.size > 500 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large. Max 500MB allowed.' }, { status: 413 })
+    console.log(`📁 Arquivo: ${file.name} (${file.type})`)
+
+    // Determinar tipo: VÍDEO ou FOTO
+    const isVideo = file.type.startsWith('video/')
+    const fileType = isVideo ? 'video' : 'photo'
+    const bucket = isVideo ? 'videos' : 'images'
+    
+    // Gerar nome único
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${uuidv4()}.${fileExt}`
+    const year = new Date().getFullYear()
+    const month = new Date().getMonth() + 1
+    const filePath = `${year}/${month}/${fileName}`
+    
+    console.log(`📂 Salvando em: ${bucket}/${filePath}`)
+
+    // UPLOAD DO ARQUIVO PRINCIPAL
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: true
+      })
+
+    if (uploadError) {
+      console.error('❌ Erro no upload:', uploadError)
+      
+      // Se o bucket não existir, dar instruções claras
+      if (uploadError.message?.includes('not found')) {
+        return NextResponse.json({
+          error: `Bucket "${bucket}" não existe no Supabase Storage.`,
+          solution: `Crie o bucket "${bucket}" no Supabase Dashboard > Storage > New Bucket`,
+          details: {
+            name: bucket,
+            public: true,
+            maxFileSize: isVideo ? '500MB' : '10MB'
+          }
+        }, { status: 500 })
+      }
+      
+      throw uploadError
     }
 
-    // Determinar o tipo de arquivo
-    const fileType = file.type.startsWith('video/') ? 'video' : 'photo'
-    const bucket = fileType === 'video' ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
+    // Gerar URL pública
+    const { data: urlData } = supabaseAdmin.storage
+      .from(bucket)
+      .getPublicUrl(filePath)
     
-    // Gerar um nome único para o arquivo
-    const fileExtension = file.name.split('.').pop()
-    const uniqueFileName = `${uuidv4()}.${fileExtension}`
-    const filePath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${uniqueFileName}`
-    
-    // Para arquivos grandes, usar stream ao invés de buffer
-    let buffer: Buffer | null = null
-    
-    // Só converter para buffer se for imagem (para gerar thumbnail)
-    if (fileType === 'photo') {
-      const arrayBuffer = await file.arrayBuffer()
-      buffer = Buffer.from(arrayBuffer)
-    }
-    
-    // Upload do arquivo principal
-    console.log(`Uploading ${fileType} to Supabase Storage...`)
-    await uploadFile(bucket, filePath, file, {
-      contentType: file.type,
-    })
-    
-    // Obter URL pública do arquivo
-    const fileUrl = getPublicUrl(bucket, filePath)
-    
-    // Gerar e fazer upload da thumbnail
+    const fileUrl = urlData.publicUrl
+    console.log(`✅ Upload concluído: ${fileUrl}`)
+
+    // PROCESSAR THUMBNAIL
     let thumbnailUrl = fileUrl
     let thumbnailPath = ''
     
-    try {
-      // Se tiver thumbnail customizada, usar ela
-      if (customThumbnail) {
-        const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
-        thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
-        
-        // Upload da thumbnail customizada
-        await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, customThumbnail, {
+    if (customThumbnail) {
+      // Se enviou thumbnail customizada, usar ela
+      console.log('🖼️ Usando thumbnail customizada')
+      
+      const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
+      thumbnailPath = `${year}/${month}/${thumbName}`
+      
+      const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
+        .from('thumbnails')
+        .upload(thumbnailPath, customThumbnail, {
           contentType: customThumbnail.type || 'image/jpeg',
+          upsert: true
         })
+
+      if (!thumbError) {
+        const { data: thumbUrlData } = supabaseAdmin.storage
+          .from('thumbnails')
+          .getPublicUrl(thumbnailPath)
+        thumbnailUrl = thumbUrlData.publicUrl
+      }
+    } else if (!isVideo) {
+      // Para fotos, gerar thumbnail automaticamente
+      console.log('🖼️ Gerando thumbnail para foto')
+      
+      try {
+        const sharp = await import('sharp')
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
         
-        thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
-      } 
-      // Se não tiver thumbnail customizada, gerar automaticamente
-      else if (fileType === 'photo' && buffer) {
-        // Gerar thumbnail para imagem
-        const thumbnailBuffer = await sharp(buffer)
+        const thumbnailBuffer = await sharp.default(buffer)
           .resize(400, 600, { fit: 'cover' })
           .jpeg({ quality: 80 })
           .toBuffer()
         
-        const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
-        thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
+        const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
+        thumbnailPath = `${year}/${month}/${thumbName}`
         
-        // Upload da thumbnail
-        await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
-          contentType: 'image/jpeg',
-        })
-        
-        thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
-      } else if (fileType === 'video' && !customThumbnail) {
-        // Para vídeos sem thumbnail customizada, gerar automaticamente
-        const { generateVideoThumbnail } = await import('@/lib/video-utils')
-        
-        try {
-          // Converter File para Buffer para o vídeo
-          const videoArrayBuffer = await file.arrayBuffer()
-          const videoBuffer = Buffer.from(videoArrayBuffer)
-          
-          // Gerar thumbnail do vídeo (primeiro frame)
-          const thumbnailBuffer = await generateVideoThumbnail(videoBuffer, file.name, '00:00:01')
-          
-          if (thumbnailBuffer) {
-            const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
-            thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
-            
-            // Upload da thumbnail
-            await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
-              contentType: 'image/jpeg',
-            })
-            
-            thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
-          }
-        } catch (error) {
-          console.error('Error generating video thumbnail:', error)
-          // Fallback: usar URL do vídeo
-          thumbnailUrl = fileUrl
+        const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
+          .from('thumbnails')
+          .upload(thumbnailPath, thumbnailBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true
+          })
+
+        if (!thumbError) {
+          const { data: thumbUrlData } = supabaseAdmin.storage
+            .from('thumbnails')
+            .getPublicUrl(thumbnailPath)
+          thumbnailUrl = thumbUrlData.publicUrl
         }
-      }
-    } catch (error) {
-      console.error('Error processing thumbnail:', error)
-    }
-    
-    // Obter dimensões da imagem
-    let width = 0, height = 0
-    if (fileType === 'photo' && buffer) {
-      try {
-        const metadata = await sharp(buffer).metadata()
-        width = metadata.width || 0
-        height = metadata.height || 0
       } catch (error) {
-        console.error('Error getting image metadata:', error)
+        console.error('Erro gerando thumbnail:', error)
       }
     }
-    
-    // Salvar metadados no Supabase Database
+    // Para vídeos sem thumbnail customizada, usar o próprio vídeo como preview
+
+    // SALVAR NO BANCO DE DADOS
     const mediaItem = await createMedia({
       title: title || file.name,
       description: description || '',
@@ -160,15 +150,17 @@ export async function POST(request: NextRequest) {
       views: 0,
       file_name: file.name,
       file_size: file.size,
-      width,
-      height,
+      width: 0,
+      height: 0,
       supabase_path: filePath,
       supabase_thumbnail_path: thumbnailPath,
     })
     
+    console.log('✅ Salvo no banco de dados')
+
     return NextResponse.json({
       success: true,
-      message: 'File uploaded successfully',
+      message: 'Upload concluído com sucesso!',
       data: {
         id: mediaItem.id,
         fileUrl,
@@ -178,52 +170,44 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Upload error:', error)
-    
-    // Se for erro de bucket não encontrado, retornar mensagem específica
-    if (error instanceof Error && error.message.includes('Bucket not found')) {
-      return NextResponse.json(
-        { 
-          error: 'Storage bucket not found. Please create the "videos" bucket in Supabase Storage.',
-          details: 'Go to Supabase Dashboard > Storage > Create Bucket > Name it "videos" with public access'
-        },
-        { status: 500 }
-      )
-    }
-    
+    console.error('❌ ERRO GERAL:', error)
     return NextResponse.json(
-      { error: `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { 
+        error: 'Erro no upload',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      },
       { status: 500 }
     )
   }
 }
 
-// GET - Listar arquivos do Supabase
+// LISTAR ARQUIVOS
 export async function GET(request: NextRequest) {
   try {
     const media = await getAllMedia()
     
     return NextResponse.json({
       success: true,
-      media
+      media,
+      total: media.length
     })
   } catch (error) {
-    console.error('Error fetching media:', error)
+    console.error('Erro ao buscar mídia:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch media' },
+      { error: 'Falha ao buscar mídia' },
       { status: 500 }
     )
   }
 }
 
-// DELETE - Deletar arquivo
+// DELETAR ARQUIVO
 export async function DELETE(request: NextRequest) {
   try {
     const { id } = await request.json()
     
     if (!id) {
       return NextResponse.json(
-        { error: 'ID is required' },
+        { error: 'ID é obrigatório' },
         { status: 400 }
       )
     }
@@ -232,13 +216,13 @@ export async function DELETE(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Media deleted successfully'
+      message: 'Mídia deletada com sucesso'
     })
     
   } catch (error) {
-    console.error('Delete error:', error)
+    console.error('Erro ao deletar:', error)
     return NextResponse.json(
-      { error: 'Failed to delete media' },
+      { error: 'Falha ao deletar mídia' },
       { status: 500 }
     )
   }

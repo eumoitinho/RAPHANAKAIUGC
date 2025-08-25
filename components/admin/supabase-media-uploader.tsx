@@ -168,21 +168,18 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
 
       clearInterval(progressInterval)
 
-      let errorData
-      try {
-        errorData = await response.json()
-      } catch (e) {
-        // Se não conseguir fazer parse do JSON, usar o texto da resposta
-        const text = await response.text()
-        console.error('Response is not JSON:', text)
-        throw new Error(`Server error: ${text.substring(0, 100)}`)
-      }
-
       if (!response.ok) {
-        throw new Error(errorData.error || 'Upload failed')
+        let errorMessage = 'Upload failed'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+        } catch (e) {
+          errorMessage = `Server error (${response.status})`
+        }
+        throw new Error(errorMessage)
       }
 
-      const result = errorData
+      const result = await response.json()
 
       // Atualizar status para success
       setFiles(prev => {
