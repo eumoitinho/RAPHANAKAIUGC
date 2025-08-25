@@ -38,7 +38,12 @@ export async function DELETE(request: Request) {
     }
 
     // Deletar do banco de dados
-    const success = await mediaService.deleteMedia(mediaItem.id || mediaItem._id)
+    const itemId = mediaItem.id || (mediaItem as any)._id
+    if (!itemId) {
+      return NextResponse.json({ error: 'Media item has no ID' }, { status: 400 })
+    }
+    
+    const success = await mediaService.deleteMedia(itemId)
 
     if (!success) {
       return NextResponse.json({ error: 'Failed to delete from database' }, { status: 500 })
