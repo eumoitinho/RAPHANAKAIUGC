@@ -18,6 +18,7 @@ type FileWithPreview = {
   progress: number
   status: 'pending' | 'uploading' | 'success' | 'error'
   error?: string
+  thumbnail?: Blob
 }
 
 const categories = ["ADS", "Wellness", "Receitas", "Moda", "Beauty", "Decor", "Experiência", "Pet", "Viagem"]
