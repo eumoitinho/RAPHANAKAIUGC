@@ -72,7 +72,20 @@ export async function POST(request: NextRequest) {
     let thumbnailPath = ''
     
     try {
-      if (fileType === 'photo' && buffer) {
+      // Se tiver thumbnail customizada, usar ela
+      if (customThumbnail) {
+        const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
+        thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
+        
+        // Upload da thumbnail customizada
+        await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, customThumbnail, {
+          contentType: customThumbnail.type || 'image/jpeg',
+        })
+        
+        thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
+      } 
+      // Se não tiver thumbnail customizada, gerar automaticamente
+      else if (fileType === 'photo' && buffer) {
         // Gerar thumbnail para imagem
         const thumbnailBuffer = await sharp(buffer)
           .resize(400, 600, { fit: 'cover' })
@@ -88,8 +101,8 @@ export async function POST(request: NextRequest) {
         })
         
         thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
-      } else if (fileType === 'video') {
-        // Para vídeos, gerar thumbnail usando ffmpeg
+      } else if (fileType === 'video' && !customThumbnail) {
+        // Para vídeos sem thumbnail customizada, gerar automaticamente
         const { generateVideoThumbnail } = await import('@/lib/video-utils')
         
         try {
@@ -97,8 +110,8 @@ export async function POST(request: NextRequest) {
           const videoArrayBuffer = await file.arrayBuffer()
           const videoBuffer = Buffer.from(videoArrayBuffer)
           
-          // Gerar thumbnail do vídeo
-          const thumbnailBuffer = await generateVideoThumbnail(videoBuffer, file.name)
+          // Gerar thumbnail do vídeo (primeiro frame)
+          const thumbnailBuffer = await generateVideoThumbnail(videoBuffer, file.name, '00:00:01')
           
           if (thumbnailBuffer) {
             const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
@@ -113,12 +126,12 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           console.error('Error generating video thumbnail:', error)
-          // Fallback: usar primeira frame ou placeholder
+          // Fallback: usar URL do vídeo
           thumbnailUrl = fileUrl
         }
       }
     } catch (error) {
-      console.error('Error generating thumbnail:', error)
+      console.error('Error processing thumbnail:', error)
     }
     
     // Obter dimensões da imagem
