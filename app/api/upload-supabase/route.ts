@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     
     // Obter dimensões da imagem
     let width = 0, height = 0
-    if (fileType === 'photo') {
+    if (fileType === 'photo' && buffer) {
       try {
         const metadata = await sharp(buffer).metadata()
         width = metadata.width || 0

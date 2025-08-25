@@ -39,7 +39,7 @@ export class MediaService {
       fileUrl: item.fileUrl,
       thumbnailUrl: item.thumbnailUrl,
       storageProvider: item.storageProvider || 'local'
-    }))
+    } as unknown as MediaItem))
   }
 
   async getMediaById(id: string): Promise<MediaItem | null> {
@@ -56,7 +56,7 @@ export class MediaService {
     return {
       ...item,
       id: item._id?.toString() || item.id
-    }
+    } as unknown as MediaItem
   }
 
   async createMedia(mediaData: Omit<MediaItem, '_id' | 'id' | 'views' | 'dateCreated'>): Promise<MediaItem> {
@@ -133,7 +133,7 @@ export class MediaService {
     return items.map(item => ({
       ...item,
       id: item._id?.toString() || item.id
-    }))
+    } as unknown as MediaItem))
   }
 
   async getMediaStats() {
