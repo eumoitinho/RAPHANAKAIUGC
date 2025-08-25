@@ -30,6 +30,8 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [thumbnailSelectorOpen, setThumbnailSelectorOpen] = useState(false)
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -108,12 +110,37 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
     )
   }
 
+  const openThumbnailSelector = (index: number) => {
+    setSelectedVideoIndex(index)
+    setThumbnailSelectorOpen(true)
+  }
+
+  const handleThumbnailSelect = (thumbnailBlob: Blob) => {
+    if (selectedVideoIndex !== null) {
+      setFiles(prev => {
+        const newFiles = [...prev]
+        newFiles[selectedVideoIndex] = {
+          ...newFiles[selectedVideoIndex],
+          thumbnail: thumbnailBlob
+        }
+        return newFiles
+      })
+    }
+    setThumbnailSelectorOpen(false)
+    setSelectedVideoIndex(null)
+  }
+
   const uploadFile = async (fileWithPreview: FileWithPreview, index: number) => {
     const formData = new FormData()
     formData.append('file', fileWithPreview.file)
     formData.append('title', title || fileWithPreview.file.name)
     formData.append('description', description)
     formData.append('categories', JSON.stringify(selectedCategories))
+    
+    // Se tiver thumbnail customizada, enviar também
+    if (fileWithPreview.thumbnail) {
+      formData.append('thumbnail', fileWithPreview.thumbnail)
+    }
 
     // Atualizar status para uploading
     setFiles(prev => {
@@ -301,14 +328,34 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
                     )}
                   </div>
 
-                  {/* Botão de remover */}
+                  {/* Botões de ação */}
                   {file.status === 'pending' && (
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4 text-white" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                      
+                      {/* Botão para selecionar thumbnail de vídeo */}
+                      {file.type === 'video' && (
+                        <button
+                          onClick={() => openThumbnailSelector(index)}
+                          className="absolute top-2 left-2 p-2 bg-[#d87093] rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Selecionar Thumbnail"
+                        >
+                          <ImageIcon className="w-4 h-4 text-white" />
+                        </button>
+                      )}
+                      
+                      {/* Indicador de thumbnail selecionada */}
+                      {file.thumbnail && (
+                        <div className="absolute bottom-12 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                          Thumbnail customizada
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Tipo de arquivo */}
@@ -386,6 +433,19 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
           </>
         )}
       </Button>
+
+      {/* Seletor de Thumbnail para Vídeos */}
+      {thumbnailSelectorOpen && selectedVideoIndex !== null && files[selectedVideoIndex] && (
+        <VideoThumbnailSelector
+          videoFile={files[selectedVideoIndex].file}
+          onSelect={handleThumbnailSelect}
+          isOpen={thumbnailSelectorOpen}
+          onClose={() => {
+            setThumbnailSelectorOpen(false)
+            setSelectedVideoIndex(null)
+          }}
+        />
+      )}
     </div>
   )
 }

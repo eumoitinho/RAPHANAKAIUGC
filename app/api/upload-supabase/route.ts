@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string
     const description = formData.get('description') as string
     const categories = JSON.parse(formData.get('categories') as string || '[]')
+    const customThumbnail = formData.get('thumbnail') as File | null
     
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
