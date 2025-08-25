@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAllMedia, incrementViews, deleteMedia } from "@/lib/supabase-db"
+import { getAllMedia, incrementViews, deleteMedia, type MediaItem } from "@/lib/supabase-db"
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   console.log("🔄 API: GET /api/media - Request received")
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     console.log(`✅ API: Found ${mediaItems.length} media items`)
 
     // Transformar para o formato esperado pelo frontend
-    const transformedItems = mediaItems.map((item) => ({
+    const transformedItems = mediaItems.map((item: MediaItem) => ({
       id: item.id,
       title: item.title || "Sem título",
       description: item.description || "",
