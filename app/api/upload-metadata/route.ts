@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       supabase_thumbnail_path: '',
       width: 0,
       height: 0,
-      duration: null
+      duration: undefined
     })
     
     return NextResponse.json({
