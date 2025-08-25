@@ -52,7 +52,7 @@ export function DirectSupabaseUploader({ onUploadComplete }: { onUploadComplete?
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
-          onUploadProgress: (progress) => {
+          onUploadProgress: (progress: any) => {
             const percent = (progress.loaded / progress.total) * 100
             setProgress(Math.round(percent))
           }
