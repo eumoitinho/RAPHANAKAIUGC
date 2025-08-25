@@ -29,11 +29,16 @@ export class MediaService {
   }
   async getAllMedia(): Promise<MediaItem[]> {
     const collection = await getMediaCollection()
+    // Buscar todos os itens, tanto locais quanto do Supabase
     const items = await collection.find({}).sort({ dateCreated: -1 }).toArray()
     
     return items.map(item => ({
       ...item,
-      id: item._id?.toString() || item.id
+      id: item._id?.toString() || item.id,
+      // Garantir que URLs do Supabase sejam preservadas
+      fileUrl: item.fileUrl,
+      thumbnailUrl: item.thumbnailUrl,
+      storageProvider: item.storageProvider || 'local'
     }))
   }
 
