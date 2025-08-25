@@ -18,6 +18,9 @@ initializeStorageBuckets().catch(console.error)
 
 export async function POST(request: NextRequest) {
   try {
+    // Log para debug
+    console.log('Upload request received')
+    
     // Verificar se o Content-Length é muito grande
     const contentLength = request.headers.get('content-length')
     if (contentLength && parseInt(contentLength) > 500 * 1024 * 1024) {
@@ -176,6 +179,18 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Upload error:', error)
+    
+    // Se for erro de bucket não encontrado, retornar mensagem específica
+    if (error instanceof Error && error.message.includes('Bucket not found')) {
+      return NextResponse.json(
+        { 
+          error: 'Storage bucket not found. Please create the "videos" bucket in Supabase Storage.',
+          details: 'Go to Supabase Dashboard > Storage > Create Bucket > Name it "videos" with public access'
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { error: `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }

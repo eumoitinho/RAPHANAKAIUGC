@@ -111,6 +111,9 @@ export const initializeStorageBuckets = async () => {
         const { data, error } = await supabaseAdmin.storage.createBucket(bucketName, {
           public: true, // Buckets públicos para acesso direto às URLs
           fileSizeLimit: bucketName === STORAGE_BUCKETS.VIDEOS ? 524288000 : 10485760, // 500MB para vídeos, 10MB para imagens
+          allowedMimeTypes: bucketName === STORAGE_BUCKETS.VIDEOS 
+            ? ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo']
+            : ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
         })
         
         if (error && !error.message.includes('already exists')) {
@@ -118,6 +121,8 @@ export const initializeStorageBuckets = async () => {
         } else {
           console.log(`Bucket ${bucketName} created successfully`)
         }
+      } else {
+        console.log(`Bucket ${bucketName} already exists`)
       }
     } catch (error) {
       console.error(`Error checking/creating bucket ${bucketName}:`, error)
