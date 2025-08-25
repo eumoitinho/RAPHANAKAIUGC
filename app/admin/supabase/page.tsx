@@ -4,6 +4,7 @@ import { useState } from "react"
 import { AdminLayout } from "@/components/admin/layout"
 import { SupabaseMediaUploader } from "@/components/admin/supabase-media-uploader"
 import { SupabaseMediaManager } from "@/components/admin/supabase-media-manager"
+import { IPhoneUploader } from "@/components/admin/iphone-uploader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, FolderOpen, Cloud } from "lucide-react"
 
@@ -43,6 +44,13 @@ export default function SupabaseFilesPage() {
           <TabsContent value="upload" className="mt-6">
             <div className="bg-[#1a1a1a] rounded-lg p-6">
               <h2 className="text-xl font-medium mb-4">Upload de Mídia para Supabase</h2>
+              
+              {/* Upload especial para iPhone - aparece automaticamente em dispositivos Apple */}
+              <div className="mb-6">
+                <IPhoneUploader onUploadComplete={handleUploadComplete} />
+              </div>
+              
+              {/* Upload padrão */}
               <SupabaseMediaUploader onUploadComplete={handleUploadComplete} />
             </div>
           </TabsContent>
