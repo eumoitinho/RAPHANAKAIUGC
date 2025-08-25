@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAllMedia, incrementViews, deleteMedia, type MediaItem } from "@/lib/supabase-db"
+import { getAllMedia, incrementViews, deleteMedia, getMediaById, type MediaItem } from "@/lib/supabase-db"
+import { deleteFile, STORAGE_BUCKETS } from "@/lib/supabase"
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   console.log("🔄 API: GET /api/media - Request received")
@@ -108,6 +109,40 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     }
 
     console.log(`🗑️ API: Deleting media with ID: ${id}`)
+    
+    // Primeiro, buscar o item para obter os caminhos dos arquivos
+    const mediaItem = await getMediaById(id)
+    
+    if (mediaItem) {
+      console.log('📁 Media item encontrado:', mediaItem)
+      
+      // Deletar arquivos do Supabase Storage
+      const filesToDelete = []
+      
+      if (mediaItem.supabase_path) {
+        const bucket = mediaItem.file_type === 'video' ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
+        filesToDelete.push({ bucket, path: mediaItem.supabase_path })
+        console.log('📁 Arquivo para deletar:', { bucket, path: mediaItem.supabase_path })
+      }
+      
+      if (mediaItem.supabase_thumbnail_path) {
+        filesToDelete.push({ bucket: STORAGE_BUCKETS.THUMBNAILS, path: mediaItem.supabase_thumbnail_path })
+        console.log('🖼️ Thumbnail para deletar:', { bucket: STORAGE_BUCKETS.THUMBNAILS, path: mediaItem.supabase_thumbnail_path })
+      }
+
+      // Deletar arquivos do Storage
+      for (const file of filesToDelete) {
+        try {
+          console.log('🗑️ Deletando do storage:', file)
+          await deleteFile(file.bucket, [file.path])
+          console.log('✅ Storage deletado:', file)
+        } catch (storageError) {
+          console.warn('⚠️ Erro ao deletar do storage (continuando):', storageError)
+        }
+      }
+    }
+    
+    // Deletar do banco de dados
     await deleteMedia(id)
     console.log("✅ API: Media deleted successfully")
 

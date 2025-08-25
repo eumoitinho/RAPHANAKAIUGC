@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { deleteFile, STORAGE_BUCKETS } from "@/lib/supabase"
+import { STORAGE_BUCKETS } from "@/lib/supabase"
 
 type MediaItem = {
   id: string
@@ -66,45 +66,40 @@ export function SupabaseMediaManager() {
   }, [])
 
   const handleDelete = async (item: MediaItem) => {
+    console.log('🗑️ Iniciando delete do item:', item)
+    
     try {
-      // Deletar arquivos do Supabase Storage
-      const filesToDelete = []
-      
-      if (item.supabase_path) {
-        const bucket = item.file_type === 'video' ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
-        filesToDelete.push({ bucket, path: item.supabase_path })
-      }
-      
-      if (item.supabase_thumbnail_path) {
-        filesToDelete.push({ bucket: STORAGE_BUCKETS.THUMBNAILS, path: item.supabase_thumbnail_path })
-      }
-
-      // Deletar arquivos do Storage
-      for (const file of filesToDelete) {
-        await deleteFile(file.bucket, [file.path])
-      }
-
-      // Deletar do Supabase Database
+      // Deletar através da API (que cuidará tanto do Storage quanto do Database)
+      console.log('🗑️ Chamando API para deletar, ID:', item.id)
       const response = await fetch('/api/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id }),
       })
 
-      if (!response.ok) throw new Error('Failed to delete from database')
+      console.log('📡 Response status:', response.status)
+      const responseData = await response.json()
+      console.log('📡 Response data:', responseData)
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete: ${responseData.error || 'Unknown error'}`)
+      }
 
       toast({
         title: "Sucesso",
         description: "Mídia removida com sucesso",
       })
 
+      console.log('✅ Delete concluído, atualizando lista...')
       // Atualizar lista
-      fetchMedia()
+      await fetchMedia()
+      console.log('✅ Lista atualizada')
+      
     } catch (error) {
-      console.error('Error deleting media:', error)
+      console.error('❌ Error deleting media:', error)
       toast({
         title: "Erro",
-        description: "Falha ao remover mídia",
+        description: `Falha ao remover mídia: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       })
     }
@@ -255,8 +250,13 @@ export function SupabaseMediaManager() {
                     <Download className="w-5 h-5 text-white" />
                   </a>
                   <button
-                    onClick={() => setItemToDelete(item)}
-                    className="p-2 bg-red-500/20 rounded-full hover:bg-red-500/30 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      console.log('🗑️ Botão delete clicado para:', item.title, item.id)
+                      setItemToDelete(item)
+                    }}
+                    className="p-2 bg-red-500/20 rounded-full hover:bg-red-500/30 transition-colors z-10"
                     title="Excluir"
                   >
                     <Trash2 className="w-5 h-5 text-red-400" />
@@ -331,7 +331,12 @@ export function SupabaseMediaManager() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => itemToDelete && handleDelete(itemToDelete)}
+              onClick={() => {
+                console.log('🗑️ Confirmando delete, item:', itemToDelete)
+                if (itemToDelete) {
+                  handleDelete(itemToDelete)
+                }
+              }}
               className="bg-red-500 hover:bg-red-600"
             >
               Excluir
