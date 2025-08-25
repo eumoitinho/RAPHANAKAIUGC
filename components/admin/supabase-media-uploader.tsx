@@ -140,10 +140,20 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
 
   const uploadFile = async (fileWithPreview: FileWithPreview, index: number) => {
     const formData = new FormData()
+    
+    // Detectar se é upload do iPhone/Safari mobile
+    const isIPhone = /iPhone|iPad|iPod|Safari/i.test(navigator.userAgent)
+    const isMobile = /Mobile|Android/i.test(navigator.userAgent)
+    
     formData.append('file', fileWithPreview.file)
     formData.append('title', title || fileWithPreview.file.name)
     formData.append('description', description)
     formData.append('categories', JSON.stringify(selectedCategories))
+    
+    // Adicionar flag para dispositivos Apple
+    if (isIPhone) {
+      formData.append('device', 'iphone')
+    }
     
     // Se tiver thumbnail customizada, usar ela
     if (fileWithPreview.thumbnail) {
@@ -172,6 +182,13 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       const response = await fetch('/api/upload-supabase', {
         method: 'POST',
         body: formData,
+        headers: {
+          // Não definir Content-Type para deixar o browser definir automaticamente
+          // especialmente importante para uploads do iPhone
+        },
+        // Configurações específicas para mobile/iPhone
+        keepalive: false,
+        signal: AbortSignal.timeout(300000), // 5 minutos timeout
       })
 
       clearInterval(progressInterval)

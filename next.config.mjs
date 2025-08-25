@@ -48,11 +48,28 @@ const nextConfig = {
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization',
+            value: 'Content-Type, Authorization, Content-Length',
           },
           {
             key: 'Access-Control-Max-Age',
             value: '86400',
+          },
+          {
+            key: 'Access-Control-Allow-Credentials',
+            value: 'true',
+          },
+        ],
+      },
+      {
+        source: '/api/upload-supabase',
+        headers: [
+          {
+            key: 'Content-Length-Limit',
+            value: '1073741824', // 1GB em bytes
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
           },
         ],
       },
