@@ -126,7 +126,7 @@ export function VideoThumbnailSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Selecione uma Thumbnail</DialogTitle>
           <DialogDescription>
@@ -134,7 +134,7 @@ export function VideoThumbnailSelector({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 max-h-[60vh] overflow-y-auto">
           {isGenerating ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin mb-4" />

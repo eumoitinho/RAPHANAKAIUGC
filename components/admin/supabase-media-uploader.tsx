@@ -112,6 +112,8 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
   }
 
   const openThumbnailSelector = (index: number) => {
+    console.log('openThumbnailSelector chamado com index:', index)
+    console.log('Arquivo:', files[index])
     setSelectedVideoIndex(index)
     setThumbnailSelectorOpen(true)
   }
@@ -354,7 +356,8 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
                     <>
                       <button
                         onClick={() => removeFile(index)}
-                        className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 p-1 bg-red-500 rounded-full z-10 transition-opacity hover:opacity-100"
+                        style={{ opacity: 0.8 }}
                       >
                         <X className="w-4 h-4 text-white" />
                       </button>
@@ -363,11 +366,16 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
                       {file.type === 'video' && (
                         <>
                           <button
-                            onClick={() => openThumbnailSelector(index)}
-                            className={`absolute top-2 left-2 p-2 rounded-full transition-all ${
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              console.log('Botão thumbnail clicado!', index)
+                              openThumbnailSelector(index)
+                            }}
+                            className={`absolute top-2 left-2 p-2 rounded-full z-20 transition-all cursor-pointer ${
                               file.thumbnail 
-                                ? 'bg-green-500 opacity-80 hover:opacity-100' 
-                                : 'bg-[#d87093] opacity-100 animate-pulse'
+                                ? 'bg-green-500 opacity-90 hover:opacity-100' 
+                                : 'bg-[#d87093] opacity-100 animate-pulse shadow-lg'
                             }`}
                             title={file.thumbnail ? "Alterar Thumbnail" : "Selecionar Thumbnail (OBRIGATÓRIO)"}
                           >
@@ -376,7 +384,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
                           
                           {/* Aviso de thumbnail obrigatória */}
                           {!file.thumbnail && (
-                            <div className="absolute top-12 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded animate-pulse">
+                            <div className="absolute top-12 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded animate-pulse z-10 shadow-lg">
                               Thumbnail OBRIGATÓRIA
                             </div>
                           )}
