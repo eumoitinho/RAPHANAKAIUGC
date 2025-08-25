@@ -2,6 +2,11 @@ import { supabaseAdmin } from './supabase'
 
 // Criar tabela de mídia se não existir
 export async function createMediaTable() {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    return
+  }
+  
   const { error } = await supabaseAdmin.rpc('create_media_table_if_not_exists', {
     table_sql: `
       CREATE TABLE IF NOT EXISTS media (
@@ -62,6 +67,11 @@ export type MediaItem = {
 
 // Buscar toda mídia
 export async function getAllMedia() {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not initialized')
+    return []
+  }
+  
   const { data, error } = await supabaseAdmin
     .from('media')
     .select('*')
