@@ -141,16 +141,6 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
     // Se tiver thumbnail customizada, usar ela
     if (fileWithPreview.thumbnail) {
       formData.append('thumbnail', fileWithPreview.thumbnail)
-    } else if (fileWithPreview.type === 'video') {
-      // Para vídeos sem thumbnail customizada, gerar uma automática
-      try {
-        console.log('🖼️ Gerando thumbnail automática para vídeo...')
-        const autoThumbnail = await generateVideoThumbnail(fileWithPreview.file)
-        formData.append('thumbnail', autoThumbnail, 'auto_thumbnail.jpg')
-      } catch (error) {
-        console.warn('Falha ao gerar thumbnail automática:', error)
-        // Continuar sem thumbnail automática
-      }
     }
 
     // Atualizar status para uploading
@@ -220,6 +210,20 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       toast({
         title: "Nenhum arquivo selecionado",
         description: "Por favor, selecione pelo menos um arquivo para enviar",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Verificar se todos os vídeos têm thumbnail selecionada
+    const videosWithoutThumbnail = files.filter(file => 
+      file.type === 'video' && !file.thumbnail
+    )
+
+    if (videosWithoutThumbnail.length > 0) {
+      toast({
+        title: "Thumbnail obrigatória para vídeos",
+        description: `${videosWithoutThumbnail.length} vídeo(s) precisam de thumbnail. Clique no ícone da imagem para selecionar.`,
         variant: "destructive",
       })
       return
@@ -357,19 +361,32 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
                       
                       {/* Botão para selecionar thumbnail de vídeo */}
                       {file.type === 'video' && (
-                        <button
-                          onClick={() => openThumbnailSelector(index)}
-                          className="absolute top-2 left-2 p-2 bg-[#d87093] rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Selecionar Thumbnail"
-                        >
-                          <ImageIcon className="w-4 h-4 text-white" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => openThumbnailSelector(index)}
+                            className={`absolute top-2 left-2 p-2 rounded-full transition-all ${
+                              file.thumbnail 
+                                ? 'bg-green-500 opacity-80 hover:opacity-100' 
+                                : 'bg-[#d87093] opacity-100 animate-pulse'
+                            }`}
+                            title={file.thumbnail ? "Alterar Thumbnail" : "Selecionar Thumbnail (OBRIGATÓRIO)"}
+                          >
+                            <ImageIcon className="w-4 h-4 text-white" />
+                          </button>
+                          
+                          {/* Aviso de thumbnail obrigatória */}
+                          {!file.thumbnail && (
+                            <div className="absolute top-12 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded animate-pulse">
+                              Thumbnail OBRIGATÓRIA
+                            </div>
+                          )}
+                        </>
                       )}
                       
                       {/* Indicador de thumbnail selecionada */}
                       {file.thumbnail && (
                         <div className="absolute bottom-12 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
-                          Thumbnail customizada
+                          ✓ Thumbnail selecionada
                         </div>
                       )}
                     </>
@@ -435,13 +452,22 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       {/* Botão de Upload */}
       <Button
         onClick={handleUpload}
-        disabled={isUploading || files.length === 0}
-        className="w-full bg-[#d87093] hover:bg-[#c45c7c] text-white"
+        disabled={isUploading || files.length === 0 || files.some(f => f.type === 'video' && !f.thumbnail)}
+        className={`w-full text-white ${
+          files.some(f => f.type === 'video' && !f.thumbnail)
+            ? 'bg-gray-500 cursor-not-allowed'
+            : 'bg-[#d87093] hover:bg-[#c45c7c]'
+        }`}
       >
         {isUploading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Enviando para Supabase...
+          </>
+        ) : files.some(f => f.type === 'video' && !f.thumbnail) ? (
+          <>
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Selecione thumbnail dos vídeos primeiro
           </>
         ) : (
           <>
