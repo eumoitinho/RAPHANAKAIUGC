@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { VideoThumbnailSelector } from "./video-thumbnail-selector"
+import { generateVideoThumbnail } from "@/lib/video-thumbnail"
 
 type FileWithPreview = {
   file: File
@@ -137,9 +138,19 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
     formData.append('description', description)
     formData.append('categories', JSON.stringify(selectedCategories))
     
-    // Se tiver thumbnail customizada, enviar também
+    // Se tiver thumbnail customizada, usar ela
     if (fileWithPreview.thumbnail) {
       formData.append('thumbnail', fileWithPreview.thumbnail)
+    } else if (fileWithPreview.type === 'video') {
+      // Para vídeos sem thumbnail customizada, gerar uma automática
+      try {
+        console.log('🖼️ Gerando thumbnail automática para vídeo...')
+        const autoThumbnail = await generateVideoThumbnail(fileWithPreview.file)
+        formData.append('thumbnail', autoThumbnail, 'auto_thumbnail.jpg')
+      } catch (error) {
+        console.warn('Falha ao gerar thumbnail automática:', error)
+        // Continuar sem thumbnail automática
+      }
     }
 
     // Atualizar status para uploading

@@ -85,7 +85,7 @@ export function SupabaseMediaManager() {
       }
 
       // Deletar do Supabase Database
-      const response = await fetch('/api/upload-supabase', {
+      const response = await fetch('/api/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id }),

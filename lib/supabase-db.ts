@@ -7,39 +7,42 @@ export async function createMediaTable() {
     return
   }
   
-  const { error } = await supabaseAdmin.rpc('create_media_table_if_not_exists', {
-    table_sql: `
-      CREATE TABLE IF NOT EXISTS media (
-        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        file_url TEXT NOT NULL,
-        thumbnail_url TEXT,
-        file_type TEXT CHECK (file_type IN ('video', 'photo')) NOT NULL,
-        categories TEXT[],
-        date_created TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        views INTEGER DEFAULT 0,
-        file_name TEXT,
-        file_size BIGINT,
-        duration INTEGER,
-        width INTEGER,
-        height INTEGER,
-        supabase_path TEXT,
-        supabase_thumbnail_path TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_media_file_type ON media(file_type);
-      CREATE INDEX IF NOT EXISTS idx_media_date_created ON media(date_created DESC);
-    `
-  }).catch(() => {
-    // Se RPC não existir, tentar criar direto
-    return supabaseAdmin.from('media').select('id').limit(1)
-  })
-
-  if (error) {
-    console.log('Table might already exist or will be created manually:', error.message)
+  try {
+    const { error } = await supabaseAdmin.rpc('create_media_table_if_not_exists', {
+      table_sql: `
+        CREATE TABLE IF NOT EXISTS media (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          file_url TEXT NOT NULL,
+          thumbnail_url TEXT,
+          file_type TEXT CHECK (file_type IN ('video', 'photo')) NOT NULL,
+          categories TEXT[],
+          date_created TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          views INTEGER DEFAULT 0,
+          file_name TEXT,
+          file_size BIGINT,
+          duration INTEGER,
+          width INTEGER,
+          height INTEGER,
+          supabase_path TEXT,
+          supabase_thumbnail_path TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_media_file_type ON media(file_type);
+        CREATE INDEX IF NOT EXISTS idx_media_date_created ON media(date_created DESC);
+      `
+    })
+    
+    if (error) {
+      console.log('Table might already exist or will be created manually:', error.message)
+    }
+  } catch (rpcError) {
+    // Se RPC não existir, tentar verificar se a tabela existe
+    console.log('RPC function not available, checking if table exists...')
+    await supabaseAdmin.from('media').select('id').limit(1)
   }
 }
 
