@@ -179,32 +179,82 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         })
       }, 200)
 
-      const response = await fetch('/api/upload-supabase', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          // Não definir Content-Type para deixar o browser definir automaticamente
-          // especialmente importante para uploads do iPhone
-        },
-        // Configurações específicas para mobile/iPhone
-        keepalive: false,
-        signal: AbortSignal.timeout(300000), // 5 minutos timeout
-      })
-
+      // UPLOAD DIRETO PARA SUPABASE (EVITA ERRO 413)
+      const { createClient } = await import('@supabase/supabase-js')
+      const { v4: uuidv4 } = await import('uuid')
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      const supabase = createClient(supabaseUrl, supabaseKey)
+      
+      // Gerar caminho único
+      const date = new Date()
+      const year = date.getFullYear()
+      const month = date.getMonth() + 1
+      const fileExt = fileWithPreview.file.name.split('.').pop()
+      const fileName = `${uuidv4()}.${fileExt}`
+      const filePath = `${year}/${month}/${fileName}`
+      
+      // Upload do arquivo principal
+      const bucket = fileWithPreview.type === 'video' ? 'videos' : 'images'
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, fileWithPreview.file)
+      
       clearInterval(progressInterval)
-
-      if (!response.ok) {
-        let errorMessage = 'Upload failed'
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorData.details || errorMessage
-        } catch (e) {
-          errorMessage = `Server error (${response.status})`
-        }
-        throw new Error(errorMessage)
+      
+      if (uploadError) {
+        throw new Error(`Upload falhou: ${uploadError.message}`)
       }
-
-      const result = await response.json()
+      
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath)
+      
+      let thumbnailUrl = urlData.publicUrl
+      let thumbnailPath = ''
+      
+      // Upload da thumbnail se houver
+      if (fileWithPreview.thumbnail) {
+        const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
+        thumbnailPath = `${year}/${month}/${thumbName}`
+        
+        const { data: thumbData, error: thumbError } = await supabase.storage
+          .from('thumbnails')
+          .upload(thumbnailPath, fileWithPreview.thumbnail)
+        
+        if (!thumbError) {
+          const { data: thumbUrlData } = supabase.storage
+            .from('thumbnails')
+            .getPublicUrl(thumbnailPath)
+          thumbnailUrl = thumbUrlData.publicUrl
+        }
+      }
+      
+      // Salvar metadados no banco
+      const response = await fetch('/api/save-media-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title || fileWithPreview.file.name,
+          description: description,
+          categories: selectedCategories,
+          file_url: urlData.publicUrl,
+          thumbnail_url: thumbnailUrl,
+          file_type: fileWithPreview.type,
+          file_name: fileWithPreview.file.name,
+          file_size: fileWithPreview.file.size,
+          supabase_path: filePath,
+          supabase_thumbnail_path: thumbnailPath
+        })
+      })
+      
+      if (!response.ok) {
+        console.warn('Aviso: Upload funcionou mas metadados não foram salvos')
+      }
+      
+      const result = { success: true, url: urlData.publicUrl }
 
       // Atualizar status para success
       setFiles(prev => {
