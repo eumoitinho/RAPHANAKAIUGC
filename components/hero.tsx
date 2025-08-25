@@ -57,13 +57,13 @@ export function Hero() {
           {/* Call to Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-[fadeIn_1.6s_ease-in-out]">
             <Button
-              onClick={() => scrollToSection("projects")}
+              onClick={() => scrollToSection("projetos")}
               className="bg-[#d87093] hover:bg-[#c45c7c] text-white rounded-full px-8 py-6 text-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(216,112,147,0.5)]"
             >
               Ver Projetos
             </Button>
             <Button
-              onClick={() => scrollToSection("contact")}
+              onClick={() => scrollToSection("contato")}
               variant="outline"
               className="border-white text-white hover:bg-white/20 rounded-full px-8 py-6 text-lg transition-all duration-300 hover:scale-105"
             >
