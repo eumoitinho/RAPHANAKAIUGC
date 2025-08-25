@@ -5,6 +5,9 @@
       "Bash(npm install:*)",
       "Bash(curl:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "D:\\MSYNC"
+    ]
   }
 }
