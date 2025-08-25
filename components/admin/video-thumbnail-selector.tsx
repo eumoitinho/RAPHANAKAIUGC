@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, Check } from "lucide-react"
+import { Loader2, Check, Upload, ImageIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,10 @@ export function VideoThumbnailSelector({
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [isGenerating, setIsGenerating] = useState(false)
   const [videoUrl, setVideoUrl] = useState<string>("")
+  const [customThumbnail, setCustomThumbnail] = useState<File | null>(null)
+  const [customThumbnailPreview, setCustomThumbnailPreview] = useState<string>("")
+  const [useCustom, setUseCustom] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen && videoFile) {
@@ -39,6 +43,13 @@ export function VideoThumbnailSelector({
       return () => {
         URL.revokeObjectURL(url)
       }
+    } else if (!isOpen) {
+      // Reset state when dialog closes
+      setCustomThumbnail(null)
+      setCustomThumbnailPreview("")
+      setUseCustom(false)
+      setSelectedIndex(0)
+      setThumbnails([])
     }
   }, [isOpen, videoFile])
 
@@ -111,8 +122,23 @@ export function VideoThumbnailSelector({
     video.load()
   }
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      setCustomThumbnail(file)
+      const url = URL.createObjectURL(file)
+      setCustomThumbnailPreview(url)
+      setUseCustom(true)
+    }
+  }
+
   const handleConfirm = async () => {
-    if (thumbnails[selectedIndex]) {
+    if (useCustom && customThumbnail) {
+      // Usar thumbnail customizada
+      onSelect(customThumbnail)
+      onClose()
+    } else if (thumbnails[selectedIndex]) {
+      // Usar thumbnail gerada
       try {
         const response = await fetch(thumbnails[selectedIndex])
         const blob = await response.blob()
@@ -142,27 +168,96 @@ export function VideoThumbnailSelector({
             </div>
           ) : (
             <>
-              {/* Preview do frame selecionado */}
-              {thumbnails[selectedIndex] && (
-                <div className="mb-6">
-                  <div className="aspect-[9/16] max-h-[400px] mx-auto relative rounded-lg overflow-hidden bg-gray-900">
+              {/* Preview do frame/thumbnail selecionado */}
+              <div className="mb-6">
+                <div className="aspect-[9/16] max-h-[400px] mx-auto relative rounded-lg overflow-hidden bg-gray-900">
+                  {useCustom && customThumbnailPreview ? (
+                    <img
+                      src={customThumbnailPreview}
+                      alt="Custom thumbnail"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : thumbnails[selectedIndex] ? (
                     <img
                       src={thumbnails[selectedIndex]}
                       alt="Selected thumbnail"
                       className="w-full h-full object-contain"
                     />
-                  </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-16 h-16 text-gray-500" />
+                    </div>
+                  )}
+                  
+                  {/* Badge indicando se é customizada */}
+                  {useCustom && (
+                    <div className="absolute top-2 left-2 bg-[#d87093] text-white text-xs px-2 py-1 rounded">
+                      Thumbnail Customizada
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Botão para upload customizado */}
+              <div className="mb-6 text-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-[#d87093] text-[#d87093] hover:bg-[#d87093]/10"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Fazer Upload de Thumbnail Personalizada
+                </Button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Não gostou de nenhuma? Faça upload da sua própria thumbnail
+                </p>
+              </div>
 
               {/* Grid de thumbnails */}
               <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                {/* Thumbnail customizada (se houver) */}
+                {customThumbnailPreview && (
+                  <button
+                    onClick={() => setUseCustom(true)}
+                    className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${
+                      useCustom
+                        ? 'border-[#d87093] scale-105'
+                        : 'border-gray-700 hover:border-gray-500'
+                    }`}
+                  >
+                    <img
+                      src={customThumbnailPreview}
+                      alt="Custom thumbnail"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-1 left-1 bg-[#d87093] text-white text-xs px-1 rounded">
+                      Custom
+                    </div>
+                    {useCustom && (
+                      <div className="absolute inset-0 bg-[#d87093]/20 flex items-center justify-center">
+                        <Check className="w-6 h-6 text-white" />
+                      </div>
+                    )}
+                  </button>
+                )}
+                
+                {/* Thumbnails geradas automaticamente */}
                 {thumbnails.map((thumb, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedIndex(index)}
+                    onClick={() => {
+                      setSelectedIndex(index)
+                      setUseCustom(false)
+                    }}
                     className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${
-                      selectedIndex === index
+                      selectedIndex === index && !useCustom
                         ? 'border-[#d87093] scale-105'
                         : 'border-gray-700 hover:border-gray-500'
                     }`}
@@ -172,7 +267,7 @@ export function VideoThumbnailSelector({
                       alt={`Thumbnail ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
-                    {selectedIndex === index && (
+                    {selectedIndex === index && !useCustom && (
                       <div className="absolute inset-0 bg-[#d87093]/20 flex items-center justify-center">
                         <Check className="w-6 h-6 text-white" />
                       </div>
@@ -190,10 +285,10 @@ export function VideoThumbnailSelector({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isGenerating || thumbnails.length === 0}
+            disabled={isGenerating || (thumbnails.length === 0 && !customThumbnail)}
             className="bg-[#d87093] hover:bg-[#c45c7c]"
           >
-            Confirmar Thumbnail
+            {useCustom ? 'Confirmar Thumbnail Personalizada' : 'Confirmar Thumbnail'}
           </Button>
         </DialogFooter>
       </DialogContent>

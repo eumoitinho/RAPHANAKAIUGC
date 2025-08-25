@@ -22,8 +22,15 @@ const nextConfig = {
     parallelServerCompiles: true,
     // Configurar limites para Server Actions
     serverActions: {
-      bodySizeLimit: '50mb', // Aumentar limite para 50MB
+      bodySizeLimit: '1gb', // Aumentar limite para 1GB para vídeos grandes
     },
+  },
+  // Configurações adicionais para uploads
+  serverRuntimeConfig: {
+    maxFileSizeBytes: 1024 * 1024 * 1024, // 1GB
+  },
+  publicRuntimeConfig: {
+    maxFileSizeBytes: 1024 * 1024 * 1024, // 1GB
   },
   // Configurar headers para uploads e arquivos estáticos
   async headers() {

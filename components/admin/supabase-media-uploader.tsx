@@ -58,24 +58,29 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
     const newFiles: FileWithPreview[] = []
 
     Array.from(fileList).forEach((file) => {
-      const isVideo = file.type.startsWith("video/")
-      const isImage = file.type.startsWith("image/")
+      // Verificar tipos de arquivo suportados (incluindo todos os formatos de iPhone)
+      const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp', '.quicktime']
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif']
+      
+      const fileName = file.name.toLowerCase()
+      const isVideo = file.type.startsWith("video/") || videoExtensions.some(ext => fileName.endsWith(ext))
+      const isImage = file.type.startsWith("image/") || imageExtensions.some(ext => fileName.endsWith(ext))
 
       if (!isVideo && !isImage) {
         toast({
           title: "Tipo de arquivo inválido",
-          description: `${file.name} não é um vídeo ou imagem válido`,
+          description: `${file.name} não é um vídeo ou imagem válido. Suporte: MP4, MOV, AVI, MKV, WebM, M4V para vídeos e JPG, PNG, WebP, GIF, HEIC para imagens`,
           variant: "destructive",
         })
         return
       }
 
-      // Limite de tamanho: 500MB para vídeos, 10MB para imagens
-      const maxSize = isVideo ? 500 * 1024 * 1024 : 10 * 1024 * 1024
+      // Limite de tamanho: 1GB para qualquer mídia
+      const maxSize = 1024 * 1024 * 1024 // 1GB para tudo
       if (file.size > maxSize) {
         toast({
           title: "Arquivo muito grande",
-          description: `${file.name} excede o limite de ${isVideo ? '500MB' : '10MB'}`,
+          description: `${file.name} excede o limite de 1GB`,
           variant: "destructive",
         })
         return
@@ -291,7 +296,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
           type="file"
           id="file-upload"
           multiple
-          accept="image/*,video/*"
+          accept="image/*,video/*,.mov,.avi,.mkv,.m4v,.heic,.heif,.3gp"
           className="hidden"
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
@@ -305,7 +310,13 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
             Arraste arquivos aqui ou clique para selecionar
           </span>
           <span className="text-sm text-gray-500">
-            Suporta imagens (até 10MB) e vídeos (até 500MB)
+            Suporta qualquer mídia até 1GB
+          </span>
+          <span className="text-xs text-gray-400 mt-1">
+            Vídeos: MP4, MOV, AVI, MKV, WebM, M4V • Imagens: JPG, PNG, WebP, GIF, HEIC
+          </span>
+          <span className="text-xs text-green-400 font-medium">
+            ✓ Suporte completo para arquivos de iPhone/iPad
           </span>
         </label>
       </div>
