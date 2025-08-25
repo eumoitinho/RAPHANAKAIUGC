@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadFile, getPublicUrl, STORAGE_BUCKETS, initializeStorageBuckets } from '@/lib/supabase'
-import { getMediaCollection } from '@/lib/mongodb'
+import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/lib/supabase-db'
 import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
 
@@ -63,95 +63,47 @@ export async function POST(request: NextRequest) {
         
         thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
       } else if (fileType === 'video') {
-        // Para vídeos, extrair frame em 1 segundo
+        // Para vídeos, usar o primeiro frame como thumbnail
         try {
-          const ffmpeg = require('fluent-ffmpeg')
-          const path = require('path')
-          const fs = require('fs').promises
-          const os = require('os')
-          
-          // Criar arquivo temporário para o vídeo
-          const tempVideoPath = path.join(os.tmpdir(), `temp_${uniqueFileName}`)
-          const tempThumbPath = path.join(os.tmpdir(), `thumb_${uniqueFileName}.jpg`)
-          
-          // Salvar vídeo temporariamente
-          await fs.writeFile(tempVideoPath, buffer)
-          
-          // Extrair frame
-          await new Promise((resolve, reject) => {
-            ffmpeg(tempVideoPath)
-              .screenshots({
-                timestamps: ['00:00:01'],
-                filename: path.basename(tempThumbPath),
-                folder: os.tmpdir(),
-                size: '400x600'
-              })
-              .on('end', resolve)
-              .on('error', reject)
-          })
-          
-          // Ler thumbnail gerada
-          const thumbnailBuffer = await fs.readFile(tempThumbPath)
-          
-          // Upload da thumbnail
-          const thumbnailFileName = `thumb_${uniqueFileName.replace(/\.[^.]+$/, '.jpg')}`
-          thumbnailPath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${thumbnailFileName}`
-          
-          await uploadFile(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath, new Blob([thumbnailBuffer]), {
-            contentType: 'image/jpeg',
-          })
-          
-          thumbnailUrl = getPublicUrl(STORAGE_BUCKETS.THUMBNAILS, thumbnailPath)
-          
-          // Limpar arquivos temporários
-          await fs.unlink(tempVideoPath).catch(() => {})
-          await fs.unlink(tempThumbPath).catch(() => {})
+          // Por enquanto, usar a URL do vídeo como thumbnail
+          // Em produção, você pode usar ffmpeg ou um serviço de thumbnail
+          thumbnailUrl = fileUrl
         } catch (error) {
           console.error('Error generating video thumbnail:', error)
-          // Se falhar, usar primeira frame como fallback ou placeholder
         }
       }
     } catch (error) {
       console.error('Error generating thumbnail:', error)
-      // Se falhar, usa a imagem/vídeo original como thumbnail
     }
     
-    // Obter dimensões da imagem/vídeo
-    let dimensions = { width: 0, height: 0 }
+    // Obter dimensões da imagem
+    let width = 0, height = 0
     if (fileType === 'photo') {
       try {
         const metadata = await sharp(buffer).metadata()
-        dimensions = {
-          width: metadata.width || 0,
-          height: metadata.height || 0,
-        }
+        width = metadata.width || 0
+        height = metadata.height || 0
       } catch (error) {
         console.error('Error getting image metadata:', error)
       }
     }
     
-    // Salvar metadados no MongoDB
-    const mediaCollection = await getMediaCollection()
-    const mediaItem = {
-      id: uuidv4(),
+    // Salvar metadados no Supabase Database
+    const mediaItem = await createMedia({
       title: title || file.name,
       description: description || '',
-      fileUrl,
-      thumbnailUrl,
-      fileType: fileType as 'video' | 'photo',
+      file_url: fileUrl,
+      thumbnail_url: thumbnailUrl,
+      file_type: fileType as 'video' | 'photo',
       categories: categories || [],
-      dateCreated: new Date(),
       views: 0,
-      fileName: file.name,
-      fileSize: file.size,
-      dimensions,
-      optimized: true,
-      supabasePath: filePath,
-      supabaseThumbnailPath: thumbnailPath,
-      storageProvider: 'supabase' as const,
-    }
-    
-    await mediaCollection.insertOne(mediaItem)
+      file_name: file.name,
+      file_size: file.size,
+      width,
+      height,
+      supabase_path: filePath,
+      supabase_thumbnail_path: thumbnailPath,
+    })
     
     return NextResponse.json({
       success: true,
@@ -173,27 +125,47 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Listar arquivos do Supabase Storage
+// GET - Listar arquivos do Supabase
 export async function GET(request: NextRequest) {
   try {
-    // Buscar todos os itens do MongoDB que estão no Supabase
-    const mediaCollection = await getMediaCollection()
-    const items = await mediaCollection
-      .find({ storageProvider: 'supabase' })
-      .sort({ dateCreated: -1 })
-      .toArray()
+    const media = await getAllMedia()
     
     return NextResponse.json({
       success: true,
-      media: items.map(item => ({
-        ...item,
-        _id: item._id?.toString(),
-      }))
+      media
     })
   } catch (error) {
     console.error('Error fetching media:', error)
     return NextResponse.json(
       { error: 'Failed to fetch media' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Deletar arquivo
+export async function DELETE(request: NextRequest) {
+  try {
+    const { id } = await request.json()
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    await deleteMediaRecord(id)
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Media deleted successfully'
+    })
+    
+  } catch (error) {
+    console.error('Delete error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete media' },
       { status: 500 }
     )
   }

@@ -1,92 +1,33 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { MediaService } from "@/lib/media-service"
-
-const mediaService = new MediaService()
+import { getAllMedia, incrementViews, deleteMedia } from "@/lib/supabase-db"
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   console.log("🔄 API: GET /api/media - Request received")
 
   try {
-    console.log("📡 API: Fetching media items from service")
-    const mediaItems = await mediaService.getAllMedia()
+    console.log("📡 API: Fetching media items from Supabase")
+    const mediaItems = await getAllMedia()
     console.log(`✅ API: Found ${mediaItems.length} media items`)
 
-    // Log some sample items for debugging
-    if (mediaItems.length > 0) {
-      console.log("📋 API: Sample media items:")
-      mediaItems.slice(0, 3).forEach((item, index) => {
-        console.log(`  ${index + 1}. ${item.title} (${item.fileType})`)
-        console.log(`     Original fields:`, Object.keys(item))
-      })
-    }
+    // Transformar para o formato esperado pelo frontend
+    const transformedItems = mediaItems.map((item) => ({
+      id: item.id,
+      title: item.title || "Sem título",
+      description: item.description || "",
+      fileUrl: item.file_url,
+      thumbnailUrl: item.thumbnail_url || item.file_url,
+      fileType: item.file_type,
+      categories: item.categories || [],
+      dateCreated: item.date_created || item.created_at,
+      views: item.views || 0,
+      fileName: item.file_name || "",
+    }))
 
-    // Sort by upload date (newest first)
-    mediaItems.sort((a, b) => {
-      const dateA = new Date(a.dateCreated || (a as any).uploadDate).getTime()
-      const dateB = new Date(b.dateCreated || (b as any).uploadDate).getTime()
-      return dateB - dateA
-    })
-
-    // Transform and validate items to match expected format
-    const transformedItems = mediaItems.map((item) => {
-      // Handle different field name variations from database
-      const fileUrl = item.fileUrl || (item as any).url || ""
-      const thumbnailUrl = item.thumbnailUrl || (item as any).thumbnail || ""
-      const dateCreated = item.dateCreated || (item as any).uploadDate || new Date().toISOString()
-
-      // Add protocol if missing (para URLs antigas)
-      // URLs do Supabase já vêm com protocolo completo
-      let processedFileUrl = fileUrl
-      let processedThumbnailUrl = thumbnailUrl
-
-      // Apenas adicionar protocolo se for necessário e não for URL do Supabase
-      if (processedFileUrl && !processedFileUrl.startsWith("http") && !processedFileUrl.includes('supabase')) {
-        processedFileUrl = `https://${processedFileUrl}`
-      }
-      if (processedThumbnailUrl && !processedThumbnailUrl.startsWith("http") && !processedThumbnailUrl.includes('supabase')) {
-        processedThumbnailUrl = `https://${processedThumbnailUrl}`
-      }
-
-      return {
-        id: item.id || item._id,
-        title: item.title || "Sem título",
-        description: item.description || "",
-        fileUrl: processedFileUrl,
-        thumbnailUrl: processedThumbnailUrl,
-        fileType: item.fileType,
-        categories: item.categories || [],
-        dateCreated: dateCreated,
-        views: item.views || 0,
-        fileName: item.fileName || (item as any).originalName || "",
-      }
-    })
-
-    // Filter out items without required fields
-    const validItems = transformedItems.filter((item) => {
-      const isValid = item.id && item.fileUrl && item.fileType
-      if (!isValid) {
-        console.warn("⚠️ API: Invalid item filtered out:", {
-          id: item.id,
-          hasFileUrl: !!item.fileUrl,
-          hasFileType: !!item.fileType,
-        })
-      }
-      return isValid
-    })
-
-    console.log(`📤 API: Returning ${validItems.length} validated items`)
-
-    // Log sample transformed items
-    if (validItems.length > 0) {
-      console.log("🔄 API: Sample transformed items:")
-      validItems.slice(0, 2).forEach((item, index) => {
-        console.log(`  ${index + 1}. ${item.title} (${item.fileType}) - ${item.fileUrl}`)
-      })
-    }
+    console.log(`📤 API: Returning ${transformedItems.length} items`)
 
     return NextResponse.json({
-      media: validItems,
-      totalCount: validItems.length,
+      media: transformedItems,
+      totalCount: transformedItems.length,
       success: true,
       timestamp: new Date().toISOString(),
     })
@@ -115,27 +56,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body = await request.json()
     console.log("📦 API: Request body:", body)
 
-    const { action, data, id } = body
+    const { id } = body
 
-    // Handle media creation (for migration)
-    if (action === 'create' && data) {
-      console.log(`📝 API: Creating new media item: ${data.title}`)
-      
-      const newMedia = await mediaService.createMedia(data)
-      console.log("✅ API: Media created successfully")
-
-      return NextResponse.json({
-        success: true,
-        id: newMedia.id,
-        message: "Media created",
-        timestamp: new Date().toISOString(),
-      })
-    }
-
-    // Handle view increment (existing functionality)
+    // Handle view increment
     if (id) {
       console.log(`👁️ API: Incrementing views for media ID: ${id}`)
-      await mediaService.incrementViews(id)
+      await incrementViews(id)
       console.log("✅ API: Views incremented successfully")
 
       return NextResponse.json({
@@ -145,9 +71,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })
     }
 
-    console.warn("⚠️ API: No valid action or ID provided")
     return NextResponse.json({ 
-      error: "Either action='create' with data, or id for view increment is required", 
+      error: "ID is required for view increment", 
       success: false 
     }, { status: 400 })
 
@@ -183,7 +108,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     }
 
     console.log(`🗑️ API: Deleting media with ID: ${id}`)
-    await mediaService.deleteMedia(id)
+    await deleteMedia(id)
     console.log("✅ API: Media deleted successfully")
 
     return NextResponse.json({

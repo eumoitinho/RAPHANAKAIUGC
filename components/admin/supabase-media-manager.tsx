@@ -19,21 +19,19 @@ import {
 import { deleteFile, STORAGE_BUCKETS } from "@/lib/supabase"
 
 type MediaItem = {
-  _id: string
   id: string
   title: string
   description: string
-  fileUrl: string
-  thumbnailUrl: string
-  fileType: 'video' | 'photo'
+  file_url: string
+  thumbnail_url: string
+  file_type: 'video' | 'photo'
   categories: string[]
-  dateCreated: string
+  date_created: string
   views: number
-  fileName: string
-  fileSize: number
-  supabasePath?: string
-  supabaseThumbnailPath?: string
-  storageProvider?: 'supabase' | 'local'
+  file_name: string
+  file_size: number
+  supabase_path?: string
+  supabase_thumbnail_path?: string
 }
 
 export function SupabaseMediaManager() {
@@ -72,13 +70,13 @@ export function SupabaseMediaManager() {
       // Deletar arquivos do Supabase Storage
       const filesToDelete = []
       
-      if (item.supabasePath) {
-        const bucket = item.fileType === 'video' ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
-        filesToDelete.push({ bucket, path: item.supabasePath })
+      if (item.supabase_path) {
+        const bucket = item.file_type === 'video' ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
+        filesToDelete.push({ bucket, path: item.supabase_path })
       }
       
-      if (item.supabaseThumbnailPath) {
-        filesToDelete.push({ bucket: STORAGE_BUCKETS.THUMBNAILS, path: item.supabaseThumbnailPath })
+      if (item.supabase_thumbnail_path) {
+        filesToDelete.push({ bucket: STORAGE_BUCKETS.THUMBNAILS, path: item.supabase_thumbnail_path })
       }
 
       // Deletar arquivos do Storage
@@ -86,11 +84,11 @@ export function SupabaseMediaManager() {
         await deleteFile(file.bucket, [file.path])
       }
 
-      // Deletar do MongoDB
-      const response = await fetch('/api/media', {
+      // Deletar do Supabase Database
+      const response = await fetch('/api/upload-supabase', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item._id }),
+        body: JSON.stringify({ id: item.id }),
       })
 
       if (!response.ok) throw new Error('Failed to delete from database')
@@ -132,10 +130,10 @@ export function SupabaseMediaManager() {
 
   const filteredItems = mediaItems.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.fileName.toLowerCase().includes(searchTerm.toLowerCase())
+                          (item.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          item.file_name.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesType = selectedType === 'all' || item.fileType === selectedType
+    const matchesType = selectedType === 'all' || item.file_type === selectedType
     
     return matchesSearch && matchesType
   })
@@ -194,11 +192,11 @@ export function SupabaseMediaManager() {
         </div>
         <div className="bg-[#252525] p-4 rounded-lg">
           <p className="text-sm text-gray-400">Vídeos</p>
-          <p className="text-2xl font-bold">{mediaItems.filter(i => i.fileType === 'video').length}</p>
+          <p className="text-2xl font-bold">{mediaItems.filter(i => i.file_type === 'video').length}</p>
         </div>
         <div className="bg-[#252525] p-4 rounded-lg">
           <p className="text-sm text-gray-400">Fotos</p>
-          <p className="text-2xl font-bold">{mediaItems.filter(i => i.fileType === 'photo').length}</p>
+          <p className="text-2xl font-bold">{mediaItems.filter(i => i.file_type === 'photo').length}</p>
         </div>
         <div className="bg-[#252525] p-4 rounded-lg">
           <p className="text-sm text-gray-400">Visualizações Totais</p>
@@ -219,19 +217,19 @@ export function SupabaseMediaManager() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredItems.map((item) => (
-            <div key={item._id} className="bg-[#252525] rounded-lg overflow-hidden group">
+            <div key={item.id} className="bg-[#252525] rounded-lg overflow-hidden group">
               {/* Thumbnail */}
               <div className="aspect-[9/16] relative bg-gray-900">
-                {item.fileType === 'video' ? (
+                {item.file_type === 'video' ? (
                   <video
-                    src={item.thumbnailUrl || item.fileUrl}
+                    src={item.thumbnail_url || item.file_url}
                     className="w-full h-full object-cover"
                     muted
-                    poster={item.thumbnailUrl}
+                    poster={item.thumbnail_url}
                   />
                 ) : (
                   <img
-                    src={item.thumbnailUrl || item.fileUrl}
+                    src={item.thumbnail_url || item.file_url}
                     alt={item.title}
                     className="w-full h-full object-cover"
                   />
@@ -240,7 +238,7 @@ export function SupabaseMediaManager() {
                 {/* Overlay com ações */}
                 <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <a
-                    href={item.fileUrl}
+                    href={item.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
@@ -249,8 +247,8 @@ export function SupabaseMediaManager() {
                     <Eye className="w-5 h-5 text-white" />
                   </a>
                   <a
-                    href={item.fileUrl}
-                    download={item.fileName}
+                    href={item.file_url}
+                    download={item.file_name}
                     className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
                     title="Baixar"
                   >
@@ -267,7 +265,7 @@ export function SupabaseMediaManager() {
 
                 {/* Badge do tipo */}
                 <div className="absolute top-2 left-2">
-                  {item.fileType === 'video' ? (
+                  {item.file_type === 'video' ? (
                     <Badge variant="secondary" className="bg-blue-500/20 text-blue-300">
                       <FileVideo className="w-3 h-3 mr-1" />
                       Vídeo
@@ -281,7 +279,7 @@ export function SupabaseMediaManager() {
                 </div>
 
                 {/* Provider badge */}
-                {item.storageProvider === 'supabase' && (
+                {true && (
                   <div className="absolute top-2 right-2">
                     <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
                       Supabase
@@ -310,9 +308,9 @@ export function SupabaseMediaManager() {
                 
                 {/* Metadados */}
                 <div className="mt-3 space-y-1 text-xs text-gray-500">
-                  <p>📁 {formatFileSize(item.fileSize)}</p>
+                  <p>📁 {formatFileSize(item.file_size)}</p>
                   <p>👁 {item.views} visualizações</p>
-                  <p>📅 {formatDate(item.dateCreated)}</p>
+                  <p>📅 {formatDate(item.date_created)}</p>
                 </div>
               </div>
             </div>
