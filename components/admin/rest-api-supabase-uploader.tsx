@@ -11,6 +11,7 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState<string>("")
+  const [useServerApi, setUseServerApi] = useState(false)
 
   const uploadViaRestApi = async (file: File) => {
     try {
@@ -42,34 +43,50 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
       setProgress(30)
       setStatus(`Enviando ${file.name} via REST API...`)
 
-      // URLs do Supabase
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      let response: Response
 
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Configuração do Supabase incompleta')
+      if (useServerApi) {
+        // OPÇÃO 1: Usar API do servidor (com Service Role Key)
+        console.log(`🔐 Usando API do servidor com Service Role Key`)
+        setStatus("Enviando via servidor (mais privilégios)...")
+        
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        response = await fetch('/api/upload-rest-api', {
+          method: 'POST',
+          body: formData
+        })
+      } else {
+        // OPÇÃO 2: Upload direto do browser (com Anon Key)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Configuração do Supabase incompleta')
+        }
+
+        // UPLOAD DIRETO VIA REST API (IGUAL VPS!)
+        const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`
+        console.log(`🚀 Upload REST API para: ${uploadUrl}`)
+
+        // Converter File para ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer()
+
+        setProgress(50)
+        setStatus("Enviando dados para Supabase Storage...")
+
+        // Fazer upload via REST API direto
+        response = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true' // Permite sobrescrever se existir
+          },
+          body: arrayBuffer
+        })
       }
-
-      // UPLOAD DIRETO VIA REST API (IGUAL VPS!)
-      const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`
-      console.log(`🚀 Upload REST API para: ${uploadUrl}`)
-
-      // Converter File para ArrayBuffer
-      const arrayBuffer = await file.arrayBuffer()
-
-      setProgress(50)
-      setStatus("Enviando dados para Supabase Storage...")
-
-      // Fazer upload via REST API direto
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': file.type || 'application/octet-stream',
-          'x-upsert': 'true' // Permite sobrescrever se existir
-        },
-        body: arrayBuffer
-      })
 
       setProgress(75)
 
