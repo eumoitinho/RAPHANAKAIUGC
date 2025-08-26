@@ -8,7 +8,8 @@
       "Bash(npm run build:*)",
       "mcp__ide__getDiagnostics",
       "Bash(del:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "additionalDirectories": [
