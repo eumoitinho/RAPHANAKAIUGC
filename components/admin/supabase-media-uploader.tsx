@@ -171,11 +171,14 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       }, 200)
 
       // UPLOAD DIRETO PARA SUPABASE (BYPASSA VERCEL COMPLETAMENTE)
-      const createClient = (await import('@supabase/supabase-js')).createClient
-      const uuidv4 = (await import('uuid')).v4
+      const { createClient } = await import('@supabase/supabase-js')
+      const { v4: uuidv4 } = await import('uuid')
       
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      // Usar valores hardcoded se env não estiver disponível
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vkhrmorqajgnzchenrpq.supabase.co'
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraHJtb3JxYWpnbnpjaGVucnBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzA3NTcsImV4cCI6MjA3MTcwNjc1N30.fVVmziGoJ87CPeET59fVoar2zL0OvqgC2zIx3VLdjmY'
+      
+      console.log('Conectando ao Supabase:', supabaseUrl)
       const supabase = createClient(supabaseUrl, supabaseKey)
       
       // Gerar caminho único
@@ -188,18 +191,44 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       
       // Upload do arquivo principal - DIRETO PRO SUPABASE SEM PASSAR PELA VERCEL
       const bucket = fileWithPreview.type === 'video' ? 'videos' : 'images'
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, fileWithPreview.file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+      
+      console.log(`Iniciando upload para bucket: ${bucket}, arquivo: ${fileName}, tamanho: ${fileWithPreview.file.size} bytes`)
+      
+      // Tentar upload com retry em caso de falha
+      let uploadData
+      let uploadError
+      let retries = 3
+      
+      while (retries > 0) {
+        const result = await supabase.storage
+          .from(bucket)
+          .upload(filePath, fileWithPreview.file, {
+            cacheControl: '3600',
+            upsert: false,
+            duplex: 'half' // Adicionar para melhor compatibilidade
+          })
+        
+        uploadData = result.data
+        uploadError = result.error
+        
+        if (!uploadError) break
+        
+        console.warn(`Tentativa de upload falhou (${4 - retries}/3):`, uploadError)
+        retries--
+        
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000)) // Esperar 2 segundos antes de tentar novamente
+        }
+      }
       
       clearInterval(progressInterval)
       
       if (uploadError) {
-        throw new Error(`Upload falhou: ${uploadError.message}`)
+        console.error('Erro detalhado do upload:', uploadError)
+        throw new Error(`Upload falhou após 3 tentativas: ${uploadError.message || uploadError}`)
       }
+      
+      console.log('Upload concluído com sucesso:', uploadData)
       
       // Obter URL pública
       const { data: urlData } = supabase.storage
@@ -259,6 +288,8 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
 
       return result
     } catch (error) {
+      console.error('Erro completo no upload:', error)
+      
       // Atualizar status para error
       setFiles(prev => {
         const newFiles = [...prev]
@@ -269,6 +300,14 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         }
         return newFiles
       })
+      
+      // Mostrar erro detalhado
+      toast({
+        title: "Erro no upload",
+        description: `${fileWithPreview.file.name}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        variant: "destructive",
+      })
+      
       throw error
     }
   }
