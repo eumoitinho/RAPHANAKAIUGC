@@ -1,13 +1,13 @@
 "use client"
 
 import { AdminLayout } from "@/components/admin/layout"
-import { IOSUploader } from "@/components/upload/ios-uploader"
+import { MediaUploader } from "@/components/admin/media-uploader"
 
 export default function UploadPage() {
   return (
     <AdminLayout>
       <div className="p-6">
-        <IOSUploader />
+        <MediaUploader />
       </div>
     </AdminLayout>
   )

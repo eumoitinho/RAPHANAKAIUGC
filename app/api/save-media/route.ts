@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createMedia } from '@/lib/supabase-db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
       supabasePath
     } = data
 
-    console.log('💾 Salvando mídia:', {
+    console.log('💾 Salvando mídia no banco:', {
       title,
       fileType,
       fileName,
@@ -24,34 +25,31 @@ export async function POST(request: NextRequest) {
       category
     })
 
-    // Aqui você integraria com seu banco de dados
-    // Por exemplo, usando Supabase Database ou Prisma
-    
-    // Simulando salvamento por enquanto
+    // Criar item no formato esperado pelo banco
     const mediaItem = {
-      id: Date.now().toString(),
       title,
       description: description || '',
       file_url: fileUrl,
       thumbnail_url: thumbnailUrl || fileUrl,
-      file_type: fileType,
-      category,
+      file_type: fileType as 'video' | 'photo',
+      categories: [category], // Converter categoria única para array
+      views: 0,
       file_name: fileName,
       file_size: fileSize,
-      supabase_path: supabasePath,
-      created_at: new Date().toISOString(),
-      views: 0
+      width: 0,
+      height: 0,
+      supabase_path: supabasePath || '',
+      supabase_thumbnail_path: thumbnailUrl !== fileUrl ? supabasePath?.replace(fileName, `thumb_${fileName}`) : '',
     }
 
-    // TODO: Implementar salvamento real no banco
-    // const { createMedia } = await import('@/lib/supabase-db')
-    // const savedMedia = await createMedia(mediaItem)
+    // Salvar no banco usando a função existente
+    const savedMedia = await createMedia(mediaItem)
 
-    console.log('✅ Mídia salva com sucesso')
+    console.log('✅ Mídia salva no banco:', savedMedia.id)
 
     return NextResponse.json({
       success: true,
-      data: mediaItem
+      data: savedMedia
     })
 
   } catch (error) {
