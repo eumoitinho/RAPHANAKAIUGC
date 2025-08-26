@@ -115,68 +115,81 @@ export async function POST(request: NextRequest) {
     let thumbnailPath = ''
     
     if (isVideo && (isiPhoneVideo || needsThumbnail)) {
-      console.log('🎬 Gerando thumbnail para vídeo...')
+      console.log('🎬 Processando vídeo do iPhone...')
       
-      try {
-        // Salvar temporariamente para processar com ffmpeg
-        const os = await import('os')
-        const tempDir = os.tmpdir() // Usa o diretório temporário do sistema
-        const tempPath = `${tempDir}/${fileName}`
-        const fs = await import('fs')
-        const path = await import('path')
-        
-        // Salvar arquivo temporário
-        fs.writeFileSync(tempPath, buffer)
-        
-        // Gerar thumbnail com ffmpeg
-        const ffmpeg = await import('fluent-ffmpeg')
-        const ffmpegStatic = await import('ffmpeg-static')
-        
-        if (ffmpegStatic.default) {
-          ffmpeg.default.setFfmpegPath(ffmpegStatic.default)
-        }
-        
-        // Extrair frame para thumbnail
-        const thumbnailName = `thumb_${fileName.replace(/\.[^/.]+$/, '.jpg')}`
-        thumbnailPath = `${year}/${month}/${thumbnailName}`
-        
-        await new Promise((resolve, reject) => {
-          ffmpeg.default(tempPath)
-            .screenshots({
-              count: 1,
-              folder: tempDir,
-              filename: thumbnailName,
-              size: '1080x1920'
+      // Na Vercel, não podemos usar ffmpeg-static
+      // Vamos usar uma abordagem alternativa
+      if (process.env.VERCEL) {
+        console.log('⚠️ Ambiente Vercel detectado - thumbnail será o próprio vídeo')
+        // Na Vercel, usar o próprio vídeo como preview
+        // O cliente pode gerar thumbnail via canvas após o carregamento
+        thumbnailUrl = publicUrl
+      } else {
+        // Em desenvolvimento local, tentar usar ffmpeg se disponível
+        try {
+          const os = await import('os')
+          const tempDir = os.tmpdir()
+          const tempPath = `${tempDir}/${fileName}`
+          const fs = await import('fs')
+          
+          // Salvar arquivo temporário
+          fs.writeFileSync(tempPath, buffer)
+          
+          // Tentar usar ffmpeg apenas se não estiver na Vercel
+          try {
+            const ffmpeg = await import('fluent-ffmpeg')
+            const ffmpegStatic = await import('ffmpeg-static')
+            
+            if (ffmpegStatic.default) {
+              ffmpeg.default.setFfmpegPath(ffmpegStatic.default)
+            }
+            
+            // Extrair frame para thumbnail
+            const thumbnailName = `thumb_${fileName.replace(/\.[^/.]+$/, '.jpg')}`
+            thumbnailPath = `${year}/${month}/${thumbnailName}`
+            
+            await new Promise((resolve, reject) => {
+              ffmpeg.default(tempPath)
+                .screenshots({
+                  count: 1,
+                  folder: tempDir,
+                  filename: thumbnailName,
+                  size: '1080x1920'
+                })
+                .on('end', resolve)
+                .on('error', reject)
             })
-            .on('end', resolve)
-            .on('error', reject)
-        })
-        
-        // Upload da thumbnail
-        const thumbnailBuffer = fs.readFileSync(`${tempDir}/${thumbnailName}`)
-        const thumbUploadUrl = `${supabaseUrl}/storage/v1/object/thumbnails/${thumbnailPath}`
-        
-        const thumbResponse = await fetch(thumbUploadUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'image/jpeg',
-            'x-upsert': 'true'
-          },
-          body: thumbnailBuffer
-        })
-        
-        if (thumbResponse.ok) {
-          thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
-          console.log('✅ Thumbnail gerada:', thumbnailUrl)
+            
+            // Upload da thumbnail
+            const thumbnailBuffer = fs.readFileSync(`${tempDir}/${thumbnailName}`)
+            const thumbUploadUrl = `${supabaseUrl}/storage/v1/object/thumbnails/${thumbnailPath}`
+            
+            const thumbResponse = await fetch(thumbUploadUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'image/jpeg',
+                'x-upsert': 'true'
+              },
+              body: thumbnailBuffer
+            })
+            
+            if (thumbResponse.ok) {
+              thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
+              console.log('✅ Thumbnail gerada:', thumbnailUrl)
+            }
+            
+            // Limpar arquivos temporários
+            fs.unlinkSync(tempPath)
+            fs.unlinkSync(`${tempDir}/${thumbnailName}`)
+          } catch (ffmpegError) {
+            console.log('ℹ️ ffmpeg não disponível, usando vídeo como preview')
+            thumbnailUrl = publicUrl
+          }
+        } catch (thumbError) {
+          console.error('⚠️ Erro processando thumbnail:', thumbError)
+          thumbnailUrl = publicUrl
         }
-        
-        // Limpar arquivos temporários
-        fs.unlinkSync(tempPath)
-        fs.unlinkSync(`${tempDir}/${thumbnailName}`)
-        
-      } catch (thumbError) {
-        console.error('⚠️ Erro gerando thumbnail (vídeo foi salvo):', thumbError)
       }
     }
 
