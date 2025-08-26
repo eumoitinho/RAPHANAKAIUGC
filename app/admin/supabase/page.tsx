@@ -6,6 +6,7 @@ import { SupabaseMediaUploader } from "@/components/admin/supabase-media-uploade
 import { SupabaseMediaManager } from "@/components/admin/supabase-media-manager"
 import { IPhoneUploader } from "@/components/admin/iphone-uploader"
 import { DirectSupabaseUploader } from "@/components/admin/direct-supabase-uploader"
+import { RestApiSupabaseUploader } from "@/components/admin/rest-api-supabase-uploader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, FolderOpen, Cloud } from "lucide-react"
 
@@ -45,6 +46,11 @@ export default function SupabaseFilesPage() {
           <TabsContent value="upload" className="mt-6">
             <div className="bg-[#1a1a1a] rounded-lg p-6">
               <h2 className="text-xl font-medium mb-4">Upload de Mídia para Supabase</h2>
+              
+              {/* NOVO SISTEMA REST API - IGUAL VPS */}
+              <div className="mb-6">
+                <RestApiSupabaseUploader onUploadComplete={handleUploadComplete} />
+              </div>
               
               {/* UPLOAD DIRETO - FUNCIONA EM PRODUÇÃO E MOBILE SEM ERRO 413 */}
               <div className="mb-6">
