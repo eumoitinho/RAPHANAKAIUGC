@@ -25,12 +25,22 @@ export async function POST(request: NextRequest) {
     // Pegar dados do formulário
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const needsThumbnail = formData.get('needsThumbnail') === 'true'
     
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
     }
 
     console.log(`📁 Arquivo: ${file.name} (${file.size} bytes)`)
+    
+    // Detectar se é arquivo do iPhone
+    const fileName = file.name.toLowerCase()
+    const ext = fileName.split('.').pop()
+    const isiPhoneVideo = ext === 'mov' || fileName.includes('img_')
+    
+    if (isiPhoneVideo) {
+      console.log('📱 Vídeo do iPhone detectado, thumbnail será gerada no servidor')
+    }
 
     // Determinar tipo
     const isVideo = file.type.startsWith('video/') || 
@@ -99,6 +109,75 @@ export async function POST(request: NextRequest) {
     // Gerar URL pública
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`
     console.log('📎 URL pública:', publicUrl)
+    
+    // Gerar thumbnail se for vídeo do iPhone
+    let thumbnailUrl = publicUrl
+    let thumbnailPath = ''
+    
+    if (isVideo && (isiPhoneVideo || needsThumbnail)) {
+      console.log('🎬 Gerando thumbnail para vídeo...')
+      
+      try {
+        // Salvar temporariamente para processar com ffmpeg
+        const tempDir = '/tmp'
+        const tempPath = `${tempDir}/${fileName}`
+        const fs = await import('fs')
+        const path = await import('path')
+        
+        // Salvar arquivo temporário
+        fs.writeFileSync(tempPath, buffer)
+        
+        // Gerar thumbnail com ffmpeg
+        const ffmpeg = await import('fluent-ffmpeg')
+        const ffmpegStatic = await import('ffmpeg-static')
+        
+        if (ffmpegStatic.default) {
+          ffmpeg.default.setFfmpegPath(ffmpegStatic.default)
+        }
+        
+        // Extrair frame para thumbnail
+        const thumbnailName = `thumb_${fileName.replace(/\.[^/.]+$/, '.jpg')}`
+        thumbnailPath = `${year}/${month}/${thumbnailName}`
+        
+        await new Promise((resolve, reject) => {
+          ffmpeg.default(tempPath)
+            .screenshots({
+              count: 1,
+              folder: tempDir,
+              filename: thumbnailName,
+              size: '1080x1920'
+            })
+            .on('end', resolve)
+            .on('error', reject)
+        })
+        
+        // Upload da thumbnail
+        const thumbnailBuffer = fs.readFileSync(`${tempDir}/${thumbnailName}`)
+        const thumbUploadUrl = `${supabaseUrl}/storage/v1/object/thumbnails/${thumbnailPath}`
+        
+        const thumbResponse = await fetch(thumbUploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'image/jpeg',
+            'x-upsert': 'true'
+          },
+          body: thumbnailBuffer
+        })
+        
+        if (thumbResponse.ok) {
+          thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
+          console.log('✅ Thumbnail gerada:', thumbnailUrl)
+        }
+        
+        // Limpar arquivos temporários
+        fs.unlinkSync(tempPath)
+        fs.unlinkSync(`${tempDir}/${thumbnailName}`)
+        
+      } catch (thumbError) {
+        console.error('⚠️ Erro gerando thumbnail (vídeo foi salvo):', thumbError)
+      }
+    }
 
     // Salvar metadados no banco (opcional)
     try {
@@ -108,7 +187,7 @@ export async function POST(request: NextRequest) {
         title: file.name.replace(/\.[^/.]+$/, ''),
         description: '',
         file_url: publicUrl,
-        thumbnail_url: publicUrl,
+        thumbnail_url: thumbnailUrl,
         file_type: isVideo ? 'video' : 'photo',
         categories: [],
         views: 0,
@@ -117,7 +196,7 @@ export async function POST(request: NextRequest) {
         width: 0,
         height: 0,
         supabase_path: filePath,
-        supabase_thumbnail_path: '',
+        supabase_thumbnail_path: thumbnailUrl !== publicUrl ? thumbnailPath : '',
       })
       
       console.log('✅ Metadados salvos no banco')
@@ -130,9 +209,11 @@ export async function POST(request: NextRequest) {
       message: 'Upload REST API concluído!',
       data: {
         fileUrl: publicUrl,
+        thumbnailUrl: thumbnailUrl,
         bucket,
         path: filePath,
-        size: file.size
+        size: file.size,
+        isiPhone: isiPhoneVideo
       }
     })
     

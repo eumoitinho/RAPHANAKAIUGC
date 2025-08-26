@@ -6,7 +6,8 @@
       "Bash(curl:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run build:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(del:*)"
     ],
     "deny": [],
     "additionalDirectories": [

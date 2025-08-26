@@ -7,6 +7,7 @@ import { SupabaseMediaManager } from "@/components/admin/supabase-media-manager"
 import { IPhoneUploader } from "@/components/admin/iphone-uploader"
 import { DirectSupabaseUploader } from "@/components/admin/direct-supabase-uploader"
 import { RestApiSupabaseUploader } from "@/components/admin/rest-api-supabase-uploader"
+import { IphoneCompatibleUploader } from "@/components/admin/iphone-compatible-uploader"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, FolderOpen, Cloud } from "lucide-react"
 
@@ -46,6 +47,11 @@ export default function SupabaseFilesPage() {
           <TabsContent value="upload" className="mt-6">
             <div className="bg-[#1a1a1a] rounded-lg p-6">
               <h2 className="text-xl font-medium mb-4">Upload de Mídia para Supabase</h2>
+              
+              {/* UPLOADER COMPATÍVEL COM iPHONE - RESOLVE PROBLEMA DO iCLOUD */}
+              <div className="mb-6">
+                <IphoneCompatibleUploader onUploadComplete={handleUploadComplete} />
+              </div>
               
               {/* NOVO SISTEMA REST API - IGUAL VPS */}
               <div className="mb-6">

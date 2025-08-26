@@ -13,11 +13,26 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
   const [status, setStatus] = useState<string>("")
   const [useServerApi, setUseServerApi] = useState(false)
 
+  const detectiPhoneFile = (file: File) => {
+    const ext = file.name.toLowerCase().split('.').pop()
+    const isiPhone = ext === 'heic' || ext === 'heif' || ext === 'mov' || 
+                     file.name.includes('IMG_') || file.name.includes('IMG-')
+    const needsServerProcessing = isiPhone || !file.type || file.type === 'application/octet-stream'
+    return { isiPhone, needsServerProcessing, extension: ext }
+  }
+
   const uploadViaRestApi = async (file: File) => {
     try {
       setUploading(true)
       setProgress(10)
       setStatus("Preparando upload...")
+      
+      // Detectar se é arquivo do iPhone
+      const fileInfo = detectiPhoneFile(file)
+      if (fileInfo.isiPhone) {
+        setStatus("Arquivo do iPhone detectado...")
+        console.log('📱 iPhone file detected:', fileInfo)
+      }
 
       // Detectar tipo de arquivo
       const isVideo = file.type.startsWith('video/') || 
@@ -45,13 +60,15 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
 
       let response: Response
 
-      if (useServerApi) {
+      if (useServerApi || fileInfo.needsServerProcessing) {
         // OPÇÃO 1: Usar API do servidor (com Service Role Key)
-        console.log(`🔐 Usando API do servidor com Service Role Key`)
-        setStatus("Enviando via servidor (mais privilégios)...")
+        // Forçar uso do servidor para arquivos do iPhone
+        console.log(`🔐 Usando API do servidor ${fileInfo.isiPhone ? '(iPhone detectado)' : '(Service Role Key)'}`)
+        setStatus(fileInfo.isiPhone ? "Processando arquivo do iPhone..." : "Enviando via servidor (mais privilégios)...")
         
         const formData = new FormData()
         formData.append('file', file)
+        formData.append('needsThumbnail', fileInfo.isiPhone ? 'true' : 'false')
         
         response = await fetch('/api/upload-rest-api', {
           method: 'POST',
@@ -191,9 +208,10 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
       </div>
       
       <p className="text-sm text-gray-300 mb-4">
-        🚀 <strong>SISTEMA OTIMIZADO IGUAL VPS</strong><br/>
+        🚀 <strong>SISTEMA OTIMIZADO - COMPATÍVEL COM iPHONE</strong><br/>
         Upload direto via REST API do Supabase Storage.<br/>
-        Sem usar cliente JavaScript = Máxima performance!
+        ✅ Detecta arquivos do iPhone/iCloud automaticamente<br/>
+        ✅ Gera thumbnail no servidor para MOV sem preview
       </p>
 
       {/* Toggle para escolher o modo */}
