@@ -218,8 +218,9 @@ export class FirebaseMigration {
 
   private async createTempFile(buffer: Buffer, originalName: string): Promise<File> {
     // Criar um objeto File a partir do buffer
-    const blob = new Blob([buffer])
-    return new File([blob], originalName)
+    const uint8Array = new Uint8Array(buffer)
+    const blob = new Blob([uint8Array])
+    return new File([blob], originalName, { type: 'application/octet-stream' })
   }
 
   private async saveThumbnail(buffer: Buffer, itemId: string): Promise<string> {

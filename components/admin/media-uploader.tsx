@@ -187,8 +187,14 @@ export function MediaUploader() {
         const thumbPath = `${year}/${month}/${thumbFileName}`
         
         try {
+          // Converter Blob em File para compatibilidade
+          const thumbnailFile = new File([selectedThumbnail], thumbFileName, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          })
+          
           thumbnailUrl = await uploadToSupabase({
-            file: selectedThumbnail,
+            file: thumbnailFile,
             bucket: 'thumbnails',
             path: thumbPath,
             onProgress: (progress) => {
