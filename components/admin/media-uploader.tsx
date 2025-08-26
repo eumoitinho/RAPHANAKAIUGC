@@ -542,12 +542,12 @@ export function MediaUploader() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-[#d87093] to-[#c45c7c] hover:from-[#c45c7c] hover:to-[#b54a6b] text-white font-medium py-4 text-lg transition-all duration-200 transform hover:scale-105"
-              disabled={
+              disabled={Boolean(
                 !mediaFile || 
                 !title.trim() || 
                 selectedCategories.length === 0 || 
-                (isVideo && Boolean(selectedThumbnail) === false)
-              }
+                (isVideo && !selectedThumbnail)
+              )}
             >
               <Upload className="w-6 h-6 mr-3" />
               {isVideo ? "🎬 Enviar Vídeo" : "📸 Enviar Foto"}
