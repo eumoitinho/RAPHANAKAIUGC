@@ -119,7 +119,8 @@ export async function POST(request: NextRequest) {
       
       try {
         // Salvar temporariamente para processar com ffmpeg
-        const tempDir = '/tmp'
+        const os = await import('os')
+        const tempDir = os.tmpdir() // Usa o diretório temporário do sistema
         const tempPath = `${tempDir}/${fileName}`
         const fs = await import('fs')
         const path = await import('path')
