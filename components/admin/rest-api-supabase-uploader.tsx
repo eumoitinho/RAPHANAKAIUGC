@@ -190,6 +190,20 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
         Sem usar cliente JavaScript = Máxima performance!
       </p>
 
+      {/* Toggle para escolher o modo */}
+      <div className="mb-4 flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="use-server-api"
+          checked={useServerApi}
+          onChange={(e) => setUseServerApi(e.target.checked)}
+          className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded"
+        />
+        <label htmlFor="use-server-api" className="text-sm text-gray-300">
+          Usar API do servidor (Service Role Key - mais privilégios)
+        </label>
+      </div>
+
       <input
         type="file"
         id="rest-api-upload"
