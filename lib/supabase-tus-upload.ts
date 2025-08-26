@@ -1,5 +1,5 @@
-// Upload usando protocolo TUS para arquivos grandes
-import * as tus from 'tus-js-client'
+// Upload direto para Supabase sem TUS para compatibilidade
+// import * as tus from 'tus-js-client'
 
 interface UploadOptions {
   file: File
@@ -25,53 +25,41 @@ export async function uploadToSupabase({
     throw new Error('Supabase configuration missing')
   }
 
-  const projectId = supabaseUrl.replace('https://', '').replace('.supabase.co', '')
-  
-  // URL do TUS endpoint do Supabase
-  const uploadUrl = `https://${projectId}.supabase.co/storage/v1/upload/resumable`
-
-  return new Promise((resolve, reject) => {
-    const upload = new tus.Upload(file, {
-      endpoint: uploadUrl,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      chunkSize: 6 * 1024 * 1024, // 6MB chunks como recomendado
-      metadata: {
-        bucketName: bucket,
-        objectName: path,
-        contentType: file.type || 'application/octet-stream',
-        cacheControl: '3600',
-      },
+  try {
+    console.log(`📱 Upload direto: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`)
+    
+    const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${path}`
+    const arrayBuffer = await file.arrayBuffer()
+    
+    // Simular progresso
+    if (onProgress) onProgress(50)
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${supabaseKey}`,
-        'x-upsert': 'true', // Sobrescreve se existir
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true',
       },
-      onError: (error) => {
-        console.error('TUS upload error:', error)
-        if (onError) onError(error)
-        reject(error)
-      },
-      onProgress: (bytesUploaded, bytesTotal) => {
-        const percentage = Math.round((bytesUploaded / bytesTotal) * 100)
-        console.log(`Upload progress: ${percentage}%`)
-        if (onProgress) onProgress(percentage)
-      },
-      onSuccess: () => {
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`
-        console.log('Upload complete:', publicUrl)
-        if (onSuccess) onSuccess(publicUrl)
-        resolve(publicUrl)
-      },
+      body: arrayBuffer
     })
 
-    // Verifica uploads anteriores e resume se possível
-    upload.findPreviousUploads().then((previousUploads) => {
-      if (previousUploads.length) {
-        console.log('Resuming previous upload')
-        upload.resumeFromPreviousUpload(previousUploads[0])
-      }
-      upload.start()
-    })
-  })
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Upload failed: ${error}`)
+    }
+
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`
+    
+    if (onProgress) onProgress(100)
+    if (onSuccess) onSuccess(publicUrl)
+    
+    return publicUrl
+  } catch (error) {
+    console.error('Upload error:', error)
+    if (onError) onError(error as Error)
+    throw error
+  }
 }
 
 // Upload simplificado sem TUS para arquivos pequenos (<6MB)
