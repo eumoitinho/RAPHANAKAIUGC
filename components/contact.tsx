@@ -1,21 +1,12 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { MapPin, Phone, Mail, Send, Instagram, Facebook, Youtube } from "lucide-react"
+import { MapPin, Phone, Mail, Instagram, MessageCircle } from "lucide-react"
 
 export function Contact() {
   const [isVisible, setIsVisible] = useState(false)
-  const [formState, setFormState] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  })
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -36,22 +27,12 @@ export function Contact() {
     }
   }, [])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormState((prev) => ({ ...prev, [name]: value }))
-  }
+  const whatsappNumber = "5518981050201"
+  const whatsappMessage = "Olá Rapha! Vim pelo seu portfólio e gostaria de conversar sobre um projeto."
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Form submitted:", formState)
-    // Here you would typically send the form data to your backend
-    alert("Mensagem enviada com sucesso!")
-    setFormState({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    })
+  const openWhatsApp = () => {
+    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+    window.open(url, '_blank')
   }
 
   return (
@@ -61,86 +42,42 @@ export function Contact() {
           <span className="text-[#d87093] uppercase tracking-wider text-sm font-medium">Contato</span>
           <h2 className="text-4xl md:text-5xl font-serif italic mt-2 mb-6">Vamos Trabalhar Juntos</h2>
           <p className="text-white/80 text-lg">
-            Entre em contato para discutirmos seu projeto e como posso ajudar a criar conteúdo visual impactante para
+            Entre em contato pelo WhatsApp para discutirmos seu projeto e como posso ajudar a criar conteúdo visual impactante para
             sua marca.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Contact Form */}
+          {/* WhatsApp Call to Action */}
           <div
             className={`transition-all duration-1000 transform ${
               isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-10"
             }`}
           >
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium text-white">
-                    Nome
-                  </label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formState.name}
-                    onChange={handleChange}
-                    placeholder="Seu nome"
-                    required
-                    className="bg-[#252525] border-[#333] focus:border-[#d87093] text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-white">
-                    Email
-                  </label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formState.email}
-                    onChange={handleChange}
-                    placeholder="seu@email.com"
-                    required
-                    className="bg-[#252525] border-[#333] focus:border-[#d87093] text-white"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="subject" className="text-sm font-medium text-white">
-                  Assunto
-                </label>
-                <Input
-                  id="subject"
-                  name="subject"
-                  value={formState.subject}
-                  onChange={handleChange}
-                  placeholder="Assunto da mensagem"
-                  required
-                  className="bg-[#252525] border-[#333] focus:border-[#d87093] text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="message" className="text-sm font-medium text-white">
-                  Mensagem
-                </label>
-                <Textarea
-                  id="message"
-                  name="message"
-                  value={formState.message}
-                  onChange={handleChange}
-                  placeholder="Sua mensagem"
-                  required
-                  className="min-h-[150px] bg-[#252525] border-[#333] focus:border-[#d87093] text-white"
-                />
-              </div>
+            <div className="bg-[#1a1a1a] rounded-lg p-8 h-full flex flex-col justify-center">
+              <h3 className="text-2xl font-medium mb-6">Fale Comigo Agora</h3>
+              <p className="text-white/70 mb-8">
+                Estou sempre disponível para discutir novos projetos e oportunidades. 
+                Clique no botão abaixo para iniciar uma conversa no WhatsApp.
+              </p>
+              
               <Button
-                type="submit"
-                className="w-full bg-[#d87093] hover:bg-[#c45c7c] text-white group transition-all duration-300 hover:shadow-lg hover:scale-[1.02] "
+                onClick={openWhatsApp}
+                className="w-full bg-[#25D366] hover:bg-[#20BD5C] text-white group transition-all duration-300 hover:shadow-lg hover:scale-[1.02] h-14 text-lg"
               >
-                Enviar Mensagem
-                <Send className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <MessageCircle className="mr-2 h-6 w-6" />
+                Conversar no WhatsApp
               </Button>
-            </form>
+
+              <div className="mt-8 p-4 bg-[#252525] rounded-lg">
+                <p className="text-sm text-white/60 text-center">
+                  Atendimento rápido e personalizado
+                </p>
+                <p className="text-xs text-white/40 text-center mt-2">
+                  Responderei sua mensagem o mais breve possível
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Contact Info */}
@@ -163,15 +100,20 @@ export function Contact() {
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-[#d87093]/10 flex items-center justify-center mr-4 text-[#d87093]">
-                    <Phone />
+                <a 
+                  href={`https://wa.me/${whatsappNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start hover:bg-[#252525] p-2 -mx-2 rounded-lg transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#25D366]/10 flex items-center justify-center mr-4 text-[#25D366]">
+                    <MessageCircle />
                   </div>
                   <div>
-                    <h4 className="text-lg font-medium">Telefone</h4>
+                    <h4 className="text-lg font-medium">WhatsApp</h4>
                     <p className="text-white/70 mt-1">+55 (18) 98105-0201</p>
                   </div>
-                </div>
+                </a>
 
                 <div className="flex items-start">
                   <div className="w-10 h-10 rounded-full bg-[#d87093]/10 flex items-center justify-center mr-4 text-[#d87093]">
@@ -185,17 +127,22 @@ export function Contact() {
               </div>
 
               <div className="mt-10">
-                <h4 className="text-lg font-medium mb-4">Me siga no Instagram</h4>
+                <h4 className="text-lg font-medium mb-4">Redes Sociais</h4>
                 <div className="flex space-x-4">
                   <a
                     href="https://instagram.com/raphanakai"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#d87093] transition-colors"
+                    className="w-12 h-12 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 transition-all duration-300"
                   >
-                    <Instagram size={18} />
+                    <Instagram size={20} />
                   </a>
-                  
+                  <button
+                    onClick={openWhatsApp}
+                    className="w-12 h-12 rounded-full bg-[#252525] flex items-center justify-center text-white hover:bg-[#25D366] transition-all duration-300"
+                  >
+                    <MessageCircle size={20} />
+                  </button>
                 </div>
               </div>
             </div>

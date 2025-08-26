@@ -75,16 +75,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         return
       }
 
-      // Limite de tamanho: 1GB para qualquer mídia
-      const maxSize = 1024 * 1024 * 1024 // 1GB para tudo
-      if (file.size > maxSize) {
-        toast({
-          title: "Arquivo muito grande",
-          description: `${file.name} excede o limite de 1GB`,
-          variant: "destructive",
-        })
-        return
-      }
+      // SEM LIMITE DE TAMANHO - Upload direto pro Supabase
 
       const preview = URL.createObjectURL(file)
       newFiles.push({
@@ -179,9 +170,9 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         })
       }, 200)
 
-      // UPLOAD DIRETO PARA SUPABASE (EVITA ERRO 413)
-      const { createClient } = await import('@supabase/supabase-js')
-      const { v4: uuidv4 } = await import('uuid')
+      // UPLOAD DIRETO PARA SUPABASE (BYPASSA VERCEL COMPLETAMENTE)
+      const createClient = (await import('@supabase/supabase-js')).createClient
+      const uuidv4 = (await import('uuid')).v4
       
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -195,11 +186,14 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
       const fileName = `${uuidv4()}.${fileExt}`
       const filePath = `${year}/${month}/${fileName}`
       
-      // Upload do arquivo principal
+      // Upload do arquivo principal - DIRETO PRO SUPABASE SEM PASSAR PELA VERCEL
       const bucket = fileWithPreview.type === 'video' ? 'videos' : 'images'
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, fileWithPreview.file)
+        .upload(filePath, fileWithPreview.file, {
+          cacheControl: '3600',
+          upsert: false
+        })
       
       clearInterval(progressInterval)
       
@@ -377,7 +371,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
             Arraste arquivos aqui ou clique para selecionar
           </span>
           <span className="text-sm text-gray-500">
-            Suporta qualquer mídia até 1GB
+            Suporta qualquer mídia - SEM LIMITE de tamanho
           </span>
           <span className="text-xs text-gray-400 mt-1">
             Vídeos: MP4, MOV, AVI, MKV, WebM, M4V • Imagens: JPG, PNG, WebP, GIF, HEIC
@@ -548,7 +542,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         {isUploading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Enviando para Supabase...
+            Enviando direto para Supabase (sem Vercel)...
           </>
         ) : files.some(f => f.type === 'video' && !f.thumbnail) ? (
           <>
@@ -558,7 +552,7 @@ export function SupabaseMediaUploader({ onUploadComplete }: { onUploadComplete?:
         ) : (
           <>
             <Upload className="mr-2 h-4 w-4" />
-            Enviar {files.length} arquivo(s) para Supabase
+            Enviar {files.length} arquivo(s) direto para Supabase
           </>
         )}
       </Button>
