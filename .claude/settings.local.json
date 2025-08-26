@@ -9,7 +9,14 @@
       "mcp__ide__getDiagnostics",
       "Bash(del:*)",
       "WebSearch",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src\\pages\\api\\posts/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src\\components\\input/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src\\lib\\hooks/**)",
+      "Read(/\\\\wsl.localhost\\Ubuntu-24.04\\home\\moitinho\\oplove_v2\\src\\lib\\utils/**)"
     ],
     "deny": [],
     "additionalDirectories": [
