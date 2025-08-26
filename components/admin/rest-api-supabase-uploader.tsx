@@ -109,7 +109,13 @@ export function RestApiSupabaseUploader({ onUploadComplete }: { onUploadComplete
       setStatus("Gerando URL pública...")
 
       // Obter URL pública
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`
+      let publicUrl: string
+      if (useServerApi && result.data?.fileUrl) {
+        publicUrl = result.data.fileUrl
+      } else {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`
+      }
       console.log('📎 URL pública:', publicUrl)
 
       // Salvar metadados no banco
