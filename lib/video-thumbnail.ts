@@ -42,68 +42,91 @@ export async function generateVideoThumbnail(
   } = options;
 
   return new Promise((resolve, reject) => {
+    console.log(`🎬 GERANDO THUMB: ${videoFile.name} no tempo ${captureTime}s`)
+    
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      reject(new Error('Could not get canvas context'));
+      console.error('❌ Canvas context não disponível')
+      reject(new Error('Canvas context não disponível'));
       return;
     }
 
-    // Set up video element for iOS compatibility
+    // Configuração otimizada para iOS
     video.preload = 'metadata';
     video.muted = true;
     video.playsInline = true;
-    video.crossOrigin = 'anonymous';
+    video.autoplay = false;
+    video.controls = false;
+
+    let hasResolved = false;
 
     const cleanup = () => {
-      video.removeEventListener('loadedmetadata', onLoadedMetadata);
-      video.removeEventListener('seeked', onSeeked);
-      video.removeEventListener('error', onError);
-      URL.revokeObjectURL(video.src);
+      if (video.src) {
+        URL.revokeObjectURL(video.src);
+      }
+      video.remove();
     };
 
-    const onError = () => {
+    const onError = (event: Event) => {
+      if (hasResolved) return;
+      hasResolved = true;
+      console.error('❌ Erro carregando vídeo:', event)
       cleanup();
-      reject(new Error('Failed to load video'));
+      reject(new Error('Falha ao carregar vídeo'));
     };
 
     const onLoadedMetadata = () => {
-      // Set canvas dimensions maintaining aspect ratio
+      if (hasResolved) return;
+      console.log(`📐 Metadata carregado: ${video.videoWidth}x${video.videoHeight}, duração: ${video.duration}s`)
+      
+      // Canvas com aspecto original do vídeo
       const aspectRatio = video.videoWidth / video.videoHeight;
       let canvasWidth = width;
       let canvasHeight = height;
 
       if (aspectRatio > width / height) {
-        canvasHeight = width / aspectRatio;
+        canvasHeight = Math.round(width / aspectRatio);
       } else {
-        canvasWidth = height * aspectRatio;
+        canvasWidth = Math.round(height * aspectRatio);
       }
 
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
 
-      // Seek to capture time (but not beyond video duration)
-      const seekTime = Math.min(captureTime, video.duration - 0.1);
+      // Tempo de captura seguro
+      const seekTime = Math.min(Math.max(captureTime, 0.1), video.duration - 0.1);
+      console.log(`⏰ Buscando tempo: ${seekTime}s`)
       video.currentTime = seekTime;
     };
 
     const onSeeked = () => {
+      if (hasResolved) return;
+      hasResolved = true;
+      
       try {
-        // Draw video frame to canvas
+        console.log('🎨 Desenhando frame no canvas...')
+        
+        // Limpar canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Desenhar frame do vídeo
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Convert canvas to blob
+        // Converter para blob
         canvas.toBlob(
           (blob) => {
             if (!blob) {
+              console.error('❌ Falha ao criar blob')
               cleanup();
-              reject(new Error('Failed to generate thumbnail blob'));
+              reject(new Error('Falha ao criar blob'));
               return;
             }
 
             const dataUrl = canvas.toDataURL(format, quality);
+            console.log(`✅ THUMBNAIL GERADA: ${blob.size} bytes`)
             
             cleanup();
             resolve({
@@ -116,18 +139,41 @@ export async function generateVideoThumbnail(
           quality
         );
       } catch (error) {
+        console.error('❌ Erro desenhando frame:', error)
         cleanup();
-        reject(new Error(`Failed to draw video frame: ${error}`));
+        reject(new Error(`Erro desenhando frame: ${error}`));
       }
     };
 
-    // Set up event listeners
+    const onCanPlayThrough = () => {
+      console.log('▶️ Vídeo pronto para reprodução')
+    };
+
+    // Event listeners
     video.addEventListener('loadedmetadata', onLoadedMetadata);
     video.addEventListener('seeked', onSeeked);
     video.addEventListener('error', onError);
+    video.addEventListener('canplaythrough', onCanPlayThrough);
 
-    // Start loading video
-    video.src = URL.createObjectURL(videoFile);
+    // Timeout de segurança
+    setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        console.error('⏰ TIMEOUT - Thumbnail demorou muito')
+        cleanup();
+        reject(new Error('Timeout gerando thumbnail'));
+      }
+    }, 10000); // 10 segundos
+
+    // Carregar vídeo
+    try {
+      const videoUrl = URL.createObjectURL(videoFile);
+      console.log('📁 Carregando vídeo URL:', videoUrl)
+      video.src = videoUrl;
+    } catch (error) {
+      console.error('❌ Erro criando object URL:', error)
+      reject(new Error('Erro criando URL do vídeo'));
+    }
   });
 }
 
@@ -139,20 +185,29 @@ export async function generateMultipleThumbnails(
   timePoints: number[],
   options: Omit<ThumbnailOptions, 'captureTime'> = {}
 ): Promise<ThumbnailResult[]> {
+  console.log(`🎬 GERANDO ${timePoints.length} THUMBNAILS para ${videoFile.name}`)
   const thumbnails: ThumbnailResult[] = [];
 
-  for (const timePoint of timePoints) {
+  for (let i = 0; i < timePoints.length; i++) {
+    const timePoint = timePoints[i];
     try {
+      console.log(`📸 Thumbnail ${i + 1}/${timePoints.length} no tempo ${timePoint}s`)
       const thumbnail = await generateVideoThumbnail(videoFile, {
         ...options,
         captureTime: timePoint
       });
       thumbnails.push(thumbnail);
+      console.log(`✅ Thumbnail ${i + 1} gerada com sucesso`)
     } catch (error) {
-      console.warn(`Failed to generate thumbnail at ${timePoint}s:`, error);
+      console.error(`❌ Falha thumbnail ${i + 1} no tempo ${timePoint}s:`, error);
+      // Continuar tentando os outros tempos mesmo se um falhar
     }
+    
+    // Pequena pausa entre gerações para evitar sobrecarga
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
+  console.log(`✅ THUMBNAILS FINALIZADAS: ${thumbnails.length}/${timePoints.length}`)
   return thumbnails;
 }
 
