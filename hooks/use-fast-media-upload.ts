@@ -45,38 +45,90 @@ export function useFastMediaUpload() {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
       const filePath = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${fileName}`
 
-      const mediaType = getMediaType(file.type)
+      // Alguns navegadores móveis (iOS) retornam file.type === '' — inferir a partir da extensão
+      const inferMimeFromName = (name: string) => {
+        const ext = name.split('.').pop()?.toLowerCase() || ''
+        const map: Record<string, string> = {
+          jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic', heif: 'image/heif',
+          mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', ogg: 'video/ogg', avi: 'video/x-msvideo'
+        }
+        return map[ext] || ''
+      }
+
+      const mimeType = file.type && file.type !== '' ? file.type : inferMimeFromName(file.name)
+      if (!mimeType) throw new Error('Não foi possível determinar o tipo do arquivo')
+      const mediaType = getMediaType(mimeType)
       
       // Upload direto sem processamento
-      const { data, error } = await supabase.storage
-        .from('media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+      console.log('🔎 Iniciando upload para Supabase, filePath=', filePath)
+        const { data, error } = await supabase.storage
+          .from('media')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
 
-      if (error) {
-        console.error('❌ SUPABASE ERROR:', error)
-        throw new Error(`Upload falhou: ${error.message}`)
-      }
+        console.log('📥 Supabase upload response received', { data, error })
 
-      // Obter URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(data.path)
+        if (error || !data) {
+          console.warn('⚠️ Supabase client upload failed, attempting server-side fallback', { error })
 
-      setUploadProgress(100)
-      console.log(`✅ UPLOAD SUCESSO: ${publicUrl}`)
+          // Fallback: upload via server-side route using service role
+          try {
+            const fd = new FormData()
+            fd.append('file', file)
+            fd.append('path', filePath)
 
-      return {
-        url: publicUrl,
-        type: mediaType,
-        fileName: fileName
-      }
+            const fallbackResp = await fetch('/api/upload-supabase', {
+              method: 'POST',
+              body: fd
+            })
+
+            if (!fallbackResp.ok) {
+              const text = await fallbackResp.text()
+              console.error('❌ Fallback upload failed:', text)
+              throw new Error('Fallback upload failed')
+            }
+
+            const fallbackJson = await fallbackResp.json()
+            const publicUrl = fallbackJson.publicUrl
+            setUploadProgress(100)
+            console.log(`✅ UPLOAD SUCESSO (fallback): ${publicUrl}`)
+            return {
+              url: publicUrl,
+              type: mediaType,
+              fileName: fileName
+            }
+          } catch (fallbackError) {
+            console.error('❌ Fallback upload error:', fallbackError)
+            throw fallbackError
+          }
+        }
+
+        // Obter URL pública
+        const getUrlResp = supabase.storage
+          .from('media')
+          .getPublicUrl(data.path)
+        const publicUrl = getUrlResp.data?.publicUrl || (getUrlResp as any).publicUrl || ''
+
+        if (!publicUrl) {
+          console.error('❌ Falha ao obter publicUrl:', getUrlResp)
+          throw new Error('Falha ao obter URL pública do arquivo')
+        }
+
+        setUploadProgress(100)
+        console.log(`✅ UPLOAD SUCESSO: ${publicUrl}`)
+
+        return {
+          url: publicUrl,
+          type: mediaType,
+          fileName: fileName
+        }
     } catch (error: any) {
       console.error('❌ UPLOAD ERROR:', error)
       throw error
     } finally {
+      // Garantir que o estado não fique preso em "uploading"
       setUploading(false)
       setUploadProgress(0)
     }

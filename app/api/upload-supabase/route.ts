@@ -1,3 +1,52 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || ''
+
+export const dynamic = 'force-dynamic'
+
+export async function POST(request: Request) {
+  try {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: 'Supabase service key not configured' }, { status: 500 })
+    }
+
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+    const path = formData.get('path') as string | null
+
+    if (!file) {
+      return NextResponse.json({ error: 'File is required' }, { status: 400 })
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+
+    // If path provided, use it; otherwise build with timestamp
+    const fileName = file instanceof File ? file.name : `upload_${Date.now()}`
+    const fileExt = fileName.split('.').pop()
+    const finalName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    const finalPath = path || `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${finalName}`
+
+    // Upload using service role key
+    const { data, error } = await supabase.storage
+      .from('media')
+      .upload(finalPath, file as any, { cacheControl: '3600', upsert: false })
+
+    if (error) {
+      console.error('Supabase server upload error:', error)
+      return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 })
+    }
+
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(data.path)
+    const publicUrl = urlData?.publicUrl || ''
+
+    return NextResponse.json({ publicUrl, fileName: finalName, path: data.path })
+  } catch (err) {
+    console.error('Error in upload-supabase route:', err)
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 })
+  }
+}
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
 import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/lib/supabase-db'
