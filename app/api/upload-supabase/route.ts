@@ -1,69 +1,18 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || ''
-
-export const dynamic = 'force-dynamic'
-
-export async function POST(request: Request) {
-  try {
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: 'Supabase service key not configured' }, { status: 500 })
-    }
-
-    const formData = await request.formData()
-    const file = formData.get('file') as File | null
-    const path = formData.get('path') as string | null
-
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 })
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-
-    // If path provided, use it; otherwise build with timestamp
-    const fileName = file instanceof File ? file.name : `upload_${Date.now()}`
-    const fileExt = fileName.split('.').pop()
-    const finalName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-    const finalPath = path || `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${finalName}`
-
-    // Upload using service role key
-    const { data, error } = await supabase.storage
-      .from('media')
-      .upload(finalPath, file as any, { cacheControl: '3600', upsert: false })
-
-    if (error) {
-      console.error('Supabase server upload error:', error)
-      return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 })
-    }
-
-    const { data: urlData } = supabase.storage.from('media').getPublicUrl(data.path)
-    const publicUrl = urlData?.publicUrl || ''
-
-    return NextResponse.json({ publicUrl, fileName: finalName, path: data.path })
-  } catch (err) {
-    console.error('Error in upload-supabase route:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 })
-  }
-}
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
 import { createMedia, getAllMedia, deleteMedia as deleteMediaRecord } from '@/lib/supabase-db'
 import { v4 as uuidv4 } from 'uuid'
 
-// Configurações da API - CORRIGIDO PARA APP ROUTER
+// Configurações da API - APP ROUTER
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutos
 export const dynamic = 'force-dynamic'
-
-// NO APP ROUTER NÃO USA CONFIG, USA RUNTIME CONFIGS
 
 // UPLOAD DE FOTOS E VÍDEOS
 export async function POST(request: NextRequest) {
   try {
     console.log('📤 Upload iniciado...')
-    
+
     // Verificar se Supabase está configurado
     if (!supabaseAdmin) {
       return NextResponse.json(
@@ -79,7 +28,7 @@ export async function POST(request: NextRequest) {
     const description = formData.get('description') as string
     const categories = JSON.parse(formData.get('categories') as string || '[]')
     const customThumbnail = formData.get('thumbnail') as File | null
-    
+
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
     }
@@ -87,30 +36,30 @@ export async function POST(request: NextRequest) {
     console.log(`📁 Arquivo: ${file.name} (${file.type})`)
 
     // Determinar tipo: VÍDEO ou FOTO
-    const isVideo = file.type.startsWith('video/')
+    const isVideo = (file.type || '').startsWith('video/')
     const fileType = isVideo ? 'video' : 'photo'
-    const bucket = isVideo ? 'videos' : 'images'
-    
+    const bucket = isVideo ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
+
     // Gerar nome único
     const fileExt = file.name.split('.').pop()
     const fileName = `${uuidv4()}.${fileExt}`
     const year = new Date().getFullYear()
     const month = new Date().getMonth() + 1
     const filePath = `${year}/${month}/${fileName}`
-    
+
     console.log(`📂 Salvando em: ${bucket}/${filePath}`)
 
     // UPLOAD DO ARQUIVO PRINCIPAL
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from(bucket)
       .upload(filePath, file, {
-        contentType: file.type,
+        contentType: file.type || undefined,
         upsert: true
       })
 
     if (uploadError) {
       console.error('❌ Erro no upload:', uploadError)
-      
+
       // Se o bucket não existir, dar instruções claras
       if (uploadError.message?.includes('not found')) {
         return NextResponse.json({
@@ -123,7 +72,7 @@ export async function POST(request: NextRequest) {
           }
         }, { status: 500 })
       }
-      
+
       throw uploadError
     }
 
@@ -131,23 +80,23 @@ export async function POST(request: NextRequest) {
     const { data: urlData } = supabaseAdmin.storage
       .from(bucket)
       .getPublicUrl(filePath)
-    
+
     const fileUrl = urlData.publicUrl
     console.log(`✅ Upload concluído: ${fileUrl}`)
 
     // PROCESSAR THUMBNAIL
     let thumbnailUrl = fileUrl
     let thumbnailPath = ''
-    
+
     if (customThumbnail) {
       // Se enviou thumbnail customizada, usar ela
       console.log('🖼️ Usando thumbnail customizada')
-      
+
       const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
       thumbnailPath = `${year}/${month}/${thumbName}`
-      
+
       const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
-        .from('thumbnails')
+        .from(STORAGE_BUCKETS.THUMBNAILS)
         .upload(thumbnailPath, customThumbnail, {
           contentType: customThumbnail.type || 'image/jpeg',
           upsert: true
@@ -155,37 +104,37 @@ export async function POST(request: NextRequest) {
 
       if (!thumbError) {
         const { data: thumbUrlData } = supabaseAdmin.storage
-          .from('thumbnails')
+          .from(STORAGE_BUCKETS.THUMBNAILS)
           .getPublicUrl(thumbnailPath)
         thumbnailUrl = thumbUrlData.publicUrl
       }
     } else if (!isVideo) {
       // Para fotos, gerar thumbnail automaticamente
       console.log('🖼️ Gerando thumbnail para foto')
-      
+
       try {
         const sharp = await import('sharp')
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
-        
+
         const thumbnailBuffer = await sharp.default(buffer)
           .resize(400, 600, { fit: 'cover' })
           .jpeg({ quality: 80 })
           .toBuffer()
-        
+
         const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
         thumbnailPath = `${year}/${month}/${thumbName}`
-        
+
         const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
-          .from('thumbnails')
+          .from(STORAGE_BUCKETS.THUMBNAILS)
           .upload(thumbnailPath, thumbnailBuffer, {
             contentType: 'image/jpeg',
             upsert: true
           })
 
         if (!thumbError) {
-          const { data: thumbUrlData } = supabaseAdmin.storage
-            .from('thumbnails')
+          const { data: thumbUrlData } = await supabaseAdmin.storage
+            .from(STORAGE_BUCKETS.THUMBNAILS)
             .getPublicUrl(thumbnailPath)
           thumbnailUrl = thumbUrlData.publicUrl
         }
@@ -211,7 +160,7 @@ export async function POST(request: NextRequest) {
       supabase_path: filePath,
       supabase_thumbnail_path: thumbnailPath,
     })
-    
+
     console.log('✅ Salvo no banco de dados')
 
     return NextResponse.json({
@@ -224,11 +173,11 @@ export async function POST(request: NextRequest) {
         fileType,
       }
     })
-    
+
   } catch (error) {
     console.error('❌ ERRO GERAL:', error)
     return NextResponse.json(
-      { 
+      {
         error: 'Erro no upload',
         details: error instanceof Error ? error.message : 'Erro desconhecido'
       },
@@ -241,7 +190,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const media = await getAllMedia()
-    
+
     return NextResponse.json({
       success: true,
       media,
@@ -260,21 +209,21 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { id } = await request.json()
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'ID é obrigatório' },
         { status: 400 }
       )
     }
-    
+
     await deleteMediaRecord(id)
-    
+
     return NextResponse.json({
       success: true,
       message: 'Mídia deletada com sucesso'
     })
-    
+
   } catch (error) {
     console.error('Erro ao deletar:', error)
     return NextResponse.json(
