@@ -119,7 +119,7 @@ export default function AdminUploadPageOriginal() {
       <div className="grid gap-4 md:grid-cols-2 md:gap-8">
         <Card>
           <CardHeader>
-            <CardTitle>Upload de Vídeo</CradTitle>
+            <CardTitle>Upload de Vídeo</CardTitle>
             <CardDescription>
               Envie um novo vídeo para o portfólio. O sistema usará TUS para uploads robustos.
             </CardDescription>
