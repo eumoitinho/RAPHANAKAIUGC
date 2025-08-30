@@ -8,183 +8,124 @@ export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutos
 export const dynamic = 'force-dynamic'
 
-// UPLOAD DE FOTOS E VÍDEOS
+// UPLOAD ULTRA SIMPLES PARA iPhone
 export async function POST(request: NextRequest) {
   try {
-    console.log('📤 Upload iniciado...')
+    console.log('🔥 API UPLOAD SIMPLES INICIADA')
 
-    // Verificar se Supabase está configurado
     if (!supabaseAdmin) {
-      return NextResponse.json(
-        { error: 'Supabase não configurado. Verifique as variáveis de ambiente.' },
-        { status: 500 }
-      )
+      console.log('❌ SUPABASE NÃO CONFIGURADO')
+      return NextResponse.json({ error: 'Supabase não configurado' }, { status: 500 })
     }
 
-    // Pegar dados do formulário
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const title = formData.get('title') as string
-    const description = formData.get('description') as string
-    const categories = JSON.parse(formData.get('categories') as string || '[]')
-    const customThumbnail = formData.get('thumbnail') as File | null
 
     if (!file) {
+      console.log('❌ NENHUM ARQUIVO')
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
     }
 
-    console.log(`📁 Arquivo: ${file.name} (${file.type})`)
+    console.log(`📁 ARQUIVO RECEBIDO: ${file.name}`)
+    console.log(`📏 TAMANHO: ${(file.size/1024/1024).toFixed(2)}MB`)
+    console.log(`🎭 TIPO: ${file.type || 'VAZIO (iPhone)'}`)
 
-    // Determinar tipo: VÍDEO ou FOTO
-    const isVideo = (file.type || '').startsWith('video/')
-    const fileType = isVideo ? 'video' : 'photo'
-    const bucket = isVideo ? STORAGE_BUCKETS.VIDEOS : STORAGE_BUCKETS.IMAGES
-
-    // Gerar nome único
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${uuidv4()}.${fileExt}`
-    const year = new Date().getFullYear()
-    const month = new Date().getMonth() + 1
-    const filePath = `${year}/${month}/${fileName}`
-
-    console.log(`📂 Salvando em: ${bucket}/${filePath}`)
-
-    // UPLOAD DO ARQUIVO PRINCIPAL
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        contentType: file.type || undefined,
-        upsert: true
-      })
-
-    if (uploadError) {
-      console.error('❌ Erro no upload:', uploadError)
-
-      // Se o bucket não existir, dar instruções claras
-      if (uploadError.message?.includes('not found')) {
-        return NextResponse.json({
-          error: `Bucket "${bucket}" não existe no Supabase Storage.`,
-          solution: `Crie o bucket "${bucket}" no Supabase Dashboard > Storage > New Bucket`,
-          details: {
-            name: bucket,
-            public: true,
-            maxFileSize: isVideo ? '500MB' : '10MB'
-          }
-        }, { status: 500 })
+    // Detectar tipo pela extensão se MIME type estiver vazio (problema iPhone)
+    let fileType = 'video'
+    let mimeType = file.type
+    
+    if (!mimeType || mimeType === '') {
+      const ext = file.name.split('.').pop()?.toLowerCase() || ''
+      console.log(`🔍 EXTENSÃO DETECTADA: ${ext}`)
+      
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
+        fileType = 'photo'
+        mimeType = ext === 'heic' ? 'image/heic' : ext === 'heif' ? 'image/heif' : 'image/jpeg'
+      } else if (['mov', 'mp4', 'avi', 'hevc', 'webm'].includes(ext)) {
+        fileType = 'video'
+        mimeType = ext === 'mov' ? 'video/quicktime' : 'video/mp4'
       }
-
-      throw uploadError
+      
+      console.log(`✅ TIPO INFERIDO: ${fileType} (${mimeType})`)
+    } else {
+      fileType = file.type.startsWith('image/') ? 'photo' : 'video'
     }
 
-    // Gerar URL pública
+    // Nome e caminho simples
+    const timestamp = Date.now()
+    const ext = file.name.split('.').pop() || 'mov'
+    const fileName = `iphone_${timestamp}.${ext}`
+    const filePath = `debug/${fileName}`
+
+    console.log(`📂 CAMINHO FINAL: media/${filePath}`)
+
+    // Upload direto ao bucket 'media' (único)
+    console.log('🚀 INICIANDO UPLOAD...')
+    const startTime = Date.now()
+    
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from('media')
+      .upload(filePath, file, {
+        contentType: mimeType,
+        upsert: false
+      })
+
+    const uploadTime = Date.now() - startTime
+    console.log(`⏱️ UPLOAD LEVOU: ${uploadTime}ms`)
+
+    if (uploadError) {
+      console.error('❌ ERRO UPLOAD:', JSON.stringify(uploadError, null, 2))
+      
+      if (uploadError.message?.includes('not found')) {
+        return NextResponse.json({
+          error: 'Bucket "media" não encontrado',
+          solution: 'Crie o bucket "media" no Supabase Dashboard',
+          uploadError
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        error: 'Falha no upload',
+        details: uploadError.message,
+        uploadError
+      }, { status: 500 })
+    }
+
+    console.log('✅ UPLOAD SUCESSO:', JSON.stringify(uploadData, null, 2))
+
+    // URL pública
     const { data: urlData } = supabaseAdmin.storage
-      .from(bucket)
+      .from('media')
       .getPublicUrl(filePath)
 
     const fileUrl = urlData.publicUrl
-    console.log(`✅ Upload concluído: ${fileUrl}`)
-
-    // PROCESSAR THUMBNAIL
-    let thumbnailUrl = fileUrl
-    let thumbnailPath = ''
-
-    if (customThumbnail) {
-      // Se enviou thumbnail customizada, usar ela
-      console.log('🖼️ Usando thumbnail customizada')
-
-      const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
-      thumbnailPath = `${year}/${month}/${thumbName}`
-
-      const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
-        .from(STORAGE_BUCKETS.THUMBNAILS)
-        .upload(thumbnailPath, customThumbnail, {
-          contentType: customThumbnail.type || 'image/jpeg',
-          upsert: true
-        })
-
-      if (!thumbError) {
-        const { data: thumbUrlData } = supabaseAdmin.storage
-          .from(STORAGE_BUCKETS.THUMBNAILS)
-          .getPublicUrl(thumbnailPath)
-        thumbnailUrl = thumbUrlData.publicUrl
-      }
-    } else if (!isVideo) {
-      // Para fotos, gerar thumbnail automaticamente
-      console.log('🖼️ Gerando thumbnail para foto')
-
-      try {
-        const sharp = await import('sharp')
-        const arrayBuffer = await file.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
-
-        const thumbnailBuffer = await sharp.default(buffer)
-          .resize(400, 600, { fit: 'cover' })
-          .jpeg({ quality: 80 })
-          .toBuffer()
-
-        const thumbName = `thumb_${fileName.replace(/\.[^.]+$/, '.jpg')}`
-        thumbnailPath = `${year}/${month}/${thumbName}`
-
-        const { data: thumbData, error: thumbError } = await supabaseAdmin.storage
-          .from(STORAGE_BUCKETS.THUMBNAILS)
-          .upload(thumbnailPath, thumbnailBuffer, {
-            contentType: 'image/jpeg',
-            upsert: true
-          })
-
-        if (!thumbError) {
-          const { data: thumbUrlData } = await supabaseAdmin.storage
-            .from(STORAGE_BUCKETS.THUMBNAILS)
-            .getPublicUrl(thumbnailPath)
-          thumbnailUrl = thumbUrlData.publicUrl
-        }
-      } catch (error) {
-        console.error('Erro gerando thumbnail:', error)
-      }
-    }
-    // Para vídeos sem thumbnail customizada, usar o próprio vídeo como preview
-
-    // SALVAR NO BANCO DE DADOS
-    const mediaItem = await createMedia({
-      title: title || file.name,
-      description: description || '',
-      file_url: fileUrl,
-      thumbnail_url: thumbnailUrl,
-      file_type: fileType as 'video' | 'photo',
-      categories: categories || [],
-      views: 0,
-      file_name: file.name,
-      file_size: file.size,
-      width: 0,
-      height: 0,
-      supabase_path: filePath,
-      supabase_thumbnail_path: thumbnailPath,
-    })
-
-    console.log('✅ Salvo no banco de dados')
+    console.log(`🔗 URL GERADA: ${fileUrl}`)
 
     return NextResponse.json({
       success: true,
-      message: 'Upload concluído com sucesso!',
+      message: 'Upload iPhone concluído!',
+      url: fileUrl,
       data: {
-        id: mediaItem.id,
-        fileUrl,
-        thumbnailUrl,
+        fileName,
+        filePath,
         fileType,
+        fileSize: file.size,
+        mimeType,
+        uploadTime
       }
     })
 
-  } catch (error) {
-    console.error('❌ ERRO GERAL:', error)
-    return NextResponse.json(
-      {
-        error: 'Erro no upload',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      },
-      { status: 500 }
-    )
+  } catch (error: any) {
+    console.error('❌ ERRO GERAL API:', error)
+    return NextResponse.json({
+      error: 'Erro interno da API',
+      details: error.message,
+      stack: error.stack
+    }, { status: 500 })
   }
 }
+
+// Resto do código original removido para simplificar
 
 // LISTAR ARQUIVOS
 export async function GET(request: NextRequest) {
