@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { UploadCloud, CheckCircle, AlertCircle, Film, Image as ImageIcon, PartyPopper } from 'lucide-react'
+import { UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
 const CATEGORIES = [
   { id: 'ads', name: 'ADS' },
@@ -38,18 +38,24 @@ export default function AdminUploadFinalPage() {
 
   const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
   const [statusMessage, setStatusMessage] = useState('')
+  const [isAuthenticating, setIsAuthenticating] = useState(true)
 
   useEffect(() => {
     const ensureAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('Sessão não encontrada. Realizando login anônimo...');
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) {
-            console.error('Falha no login anônimo:', error);
-            setStatus('error');
-            setStatusMessage(`Falha na autenticação: ${error.message}`);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log('Sessão não encontrada. Realizando login anônimo...');
+          const { error } = await supabase.auth.signInAnonymously();
+          if (error) throw error;
+          console.log('Login anônimo bem-sucedido.');
         }
+      } catch (error: any) {
+        console.error('Falha no processo de autenticação anônima:', error);
+        setStatus('error');
+        setStatusMessage(`Falha crítica na autenticação: ${error.message}. Por favor, recarregue a página.`);
+      } finally {
+        setIsAuthenticating(false);
       }
     };
     ensureAuth();
@@ -88,40 +94,21 @@ export default function AdminUploadFinalPage() {
     setStatus('uploading')
 
     try {
-      // 1. Upload do vídeo
-      setStatusMessage(`Enviando o vídeo...`)
+      setStatusMessage('Enviando o vídeo...')
       const videoFileExt = videoFile.name.split('.').pop() || 'mp4'
       const videoFileName = `uploads/videos/${Date.now()}.${videoFileExt}`
-      const videoResult = await uploadFile({
-        file: videoFile,
-        bucketName: 'media',
-        fileName: videoFileName,
-      })
+      const videoResult = await uploadFile({ file: videoFile, bucketName: 'media', fileName: videoFileName })
 
-      // 2. Upload da thumbnail
       setStatusMessage('Enviando a thumbnail...')
       const thumbnailFileName = `uploads/thumbnails/${Date.now()}.jpg`
       const thumbnailFile = new File([thumbnailBlob], thumbnailFileName, { type: 'image/jpeg' })
-      const thumbnailResult = await uploadFile({
-        file: thumbnailFile,
-        bucketName: 'media',
-        fileName: thumbnailFileName,
-      })
+      const thumbnailResult = await uploadFile({ file: thumbnailFile, bucketName: 'media', fileName: thumbnailFileName })
 
-      // 3. Salvar metadados no banco
       setStatusMessage('Salvando informações...')
       const response = await fetch('/api/save-media-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          category,
-          video_url: videoResult.url,
-          thumbnail_url: thumbnailResult.url,
-          video_path: videoResult.path,
-          thumbnail_path: thumbnailResult.path,
-        }),
+        body: JSON.stringify({ title, description, category, video_url: videoResult.url, thumbnail_url: thumbnailResult.url, video_path: videoResult.path, thumbnail_path: thumbnailResult.path }),
       })
 
       if (!response.ok) {
@@ -139,6 +126,8 @@ export default function AdminUploadFinalPage() {
     }
   }, [videoFile, thumbnailBlob, title, description, category, uploadFile, tusError])
 
+  const isSubmitDisabled = uploading || !videoFile || !thumbnailBlob || isAuthenticating;
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
       {status !== 'success' ? (
@@ -146,34 +135,30 @@ export default function AdminUploadFinalPage() {
           <Card>
             <CardHeader>
               <CardTitle>Detalhes do Conteúdo</CardTitle>
-              <CardDescription>
-                Preencha as informações do seu vídeo.
-              </CardDescription>
+              <CardDescription>Preencha as informações do seu vídeo.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título</Label>
-                <Input id="title" placeholder="Título principal do vídeo" value={title} onChange={(e) => setTitle(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea id="description" placeholder="Descreva os detalhes do seu trabalho..." value={description} onChange={(e) => setDescription(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Categoria</Label>
-                <Select onValueChange={setCategory} value={category} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full" disabled={uploading || !videoFile || !thumbnailBlob}>
-                {uploading ? `Enviando... ${progress}%` : "Publicar Conteúdo"}
-                <UploadCloud className="ml-2 h-4 w-4" />
-              </Button>
+              <fieldset disabled={isAuthenticating || uploading}>
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título</Label>
+                  <Input id="title" placeholder="Título principal do vídeo" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea id="description" placeholder="Descreva os detalhes do seu trabalho..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Categoria</Label>
+                  <Select onValueChange={setCategory} value={category} required>
+                    <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                    <SelectContent>{CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </fieldset>
+              <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
+                {isAuthenticating && <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Autenticando...</>}
+                {uploading && !isAuthenticating && <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{`Enviando... ${progress}%`}</>}
+                {!uploading && !isAuthenticating && <><UploadCloud className="mr-2 h-4 w-4" />Publicar Conteúdo</>}</Button>
             </CardContent>
           </Card>
 
@@ -183,32 +168,34 @@ export default function AdminUploadFinalPage() {
               <CardDescription>Selecione o vídeo e depois gere a thumbnail.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="video-file">Arquivo de Vídeo (Até 2GB)</Label>
-                <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} required />
-                 {videoFile && <p className="text-sm text-green-500">Vídeo selecionado: {videoFile.name}</p>}
-              </div>
-              {videoFile && (
-                <div className="space-y-4">
-                    <Label><ImageIcon className="inline-block mr-2"/>Gerador de Thumbnail</Label>
-                    <VideoThumbnailSelector videoFile={videoFile} onThumbnailSelected={setThumbnailBlob} />
-                    {thumbnailBlob && <p className="text-sm text-green-500">Thumbnail gerada com sucesso!</p>}
+              <fieldset disabled={isAuthenticating || uploading}>
+                <div className="space-y-2">
+                  <Label htmlFor="video-file">Arquivo de Vídeo (Até 2GB)</Label>
+                  <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} required />
+                  {videoFile && <p className="text-sm text-green-500">Vídeo selecionado: {videoFile.name}</p>}
+                </div>
+                {videoFile && (
+                  <div className="space-y-4">
+                      <Label>Gerador de Thumbnail</Label>
+                      <VideoThumbnailSelector videoFile={videoFile} onThumbnailSelected={setThumbnailBlob} />
+                      {thumbnailBlob && <p className="text-sm text-green-500">Thumbnail gerada com sucesso!</p>}
+                  </div>
+                )}
+              </fieldset>
+              {uploading && (
+                <div className="space-y-2 pt-4">
+                  <Label>{statusMessage}</Label>
+                  <Progress value={progress} className="w-full" />
+                  <p className="text-sm text-muted-foreground text-center">{progress}%</p>
                 </div>
               )}
-               {uploading && (
-                 <div className="space-y-2 pt-4">
-                   <Label>{statusMessage}</Label>
-                   <Progress value={progress} className="w-full" />
-                   <p className="text-sm text-muted-foreground text-center">{progress}%</p>
-                 </div>
-               )}
-                {status === 'error' && (
-                    <Alert variant="destructive">
+              {status === 'error' && (
+                  <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Erro no Upload</AlertTitle>
+                    <AlertTitle>Ocorreu um Erro</AlertTitle>
                     <AlertDescription>{statusMessage}</AlertDescription>
-                    </Alert>
-                )}
+                  </Alert>
+              )}
             </CardContent>
           </Card>
         </form>
