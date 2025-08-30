@@ -1,41 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createMedia } from '@/lib/supabase-db'
+'use server'
 
-export async function POST(request: NextRequest) {
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+export async function POST(request: Request) {
   try {
-    const data = await request.json()
-    
-    // Salvar no banco
-    const mediaItem = await createMedia({
-      title: data.title,
-      description: data.description || '',
-      file_url: data.file_url,
-      thumbnail_url: data.thumbnail_url,
-      file_type: data.file_type as 'video' | 'photo',
-      categories: data.categories || [],
-      file_name: data.file_name,
-      file_size: data.file_size || 0,
-      supabase_path: data.supabase_path,
-      supabase_thumbnail_path: data.supabase_thumbnail_path || '',
-      width: 0,
-      height: 0,
-      duration: undefined,
-      views: 0,
-      date_created: new Date().toISOString()
-    })
-    
-    return NextResponse.json({
-      success: true,
-      media: mediaItem
-    })
-    
-  } catch (error) {
-    console.error('Erro salvando metadados:', error)
-    return NextResponse.json(
-      { error: 'Erro ao salvar metadados' },
-      { status: 500 }
-    )
+    const { 
+      title, 
+      category, 
+      video_url, 
+      thumbnail_url, 
+      video_path, 
+      thumbnail_path 
+    } = await request.json()
+
+    if (!title || !category || !video_url || !thumbnail_url) {
+      return NextResponse.json({ message: 'Dados incompletos.' }, { status: 400 })
+    }
+
+    console.log('🔥 SALVANDO METADADOS:', { title, category });
+
+    const { data, error } = await supabase
+      .from('portfolio_items')
+      .insert([
+        {
+          title,
+          category,
+          video_url,
+          thumbnail_url,
+          video_path, // Para futuras operações de exclusão
+          thumbnail_path, // Para futuras operações de exclusão
+          status: 'active',
+        },
+      ])
+      .select()
+      .single() // Retorna o objeto inserido
+
+    if (error) {
+      console.error('❌ Erro ao salvar no Supabase:', error)
+      throw new Error(error.message)
+    }
+
+    console.log('✅ Metadados salvos com sucesso:', data);
+
+    return NextResponse.json(data, { status: 201 })
+
+  } catch (error: any) {
+    console.error('❌ Erro na API /api/save-media-metadata:', error)
+    return NextResponse.json({ message: error.message }, { status: 500 })
   }
 }
-
-export const runtime = 'nodejs'

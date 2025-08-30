@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useUltraSimpleUpload } from '@/hooks/use-ultra-simple-upload'
+import { useTUSUpload } from '@/hooks/use-tus-upload'
 
 export default function TestUploadPage() {
   const [file, setFile] = useState<File | null>(null)
-  const { uploadFile, uploading, uploadProgress } = useUltraSimpleUpload()
+  const { uploadFile, uploading, progress } = useTUSUpload()
   const [result, setResult] = useState<string>('')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,22 +22,30 @@ export default function TestUploadPage() {
       return
     }
 
-    console.log('🔥 INICIANDO TESTE DE UPLOAD')
+    console.log('🔥 INICIANDO TESTE DE UPLOAD RESUMABLE (TUS)')
     
     try {
-      const uploadResult = await uploadFile(file)
-      console.log('✅ SUCESSO:', uploadResult)
+      const fileExt = file.name.split('.').pop() || 'mp4'
+      const fileName = `uploads/${Date.now()}.${fileExt}`
+
+      const uploadResult = await uploadFile({
+        file,
+        bucketName: 'media',
+        fileName,
+      })
+      
+      console.log('✅ SUCESSO TUS:', uploadResult)
       setResult(`✅ SUCESSO: ${uploadResult.url}`)
     } catch (error: any) {
-      console.error('❌ ERRO:', error)
+      console.error('❌ ERRO TUS:', error)
       setResult(`❌ ERRO: ${error.message}`)
     }
   }
 
   return (
     <div style={{ padding: '20px', backgroundColor: '#111', color: '#fff', minHeight: '100vh' }}>
-      <h1>🔥 TESTE UPLOAD ULTRA SIMPLES</h1>
-      <p>Teste direto sem complexidade - iPhone 300MB</p>
+      <h1>🔥 TESTE UPLOAD RESUMABLE (TUS)</h1>
+      <p>Teste com upload em partes, ideal para arquivos grandes e celulares.</p>
       
       <div style={{ margin: '20px 0' }}>
         <input 
@@ -60,17 +68,17 @@ export default function TestUploadPage() {
       <button 
         onClick={handleUpload}
         disabled={!file || uploading}
-        style={{ 
+        style={{
           padding: '15px 30px', 
           fontSize: '18px', 
-          backgroundColor: uploading ? '#666' : '#d87093',
+          backgroundColor: uploading ? '#666' : '#5e3a8d',
           color: 'white',
           border: 'none',
           borderRadius: '8px',
           cursor: uploading ? 'not-allowed' : 'pointer'
         }}
       >
-        {uploading ? `🔄 Uploading... ${uploadProgress}%` : '🚀 UPLOAD TESTE'}
+        {uploading ? `🔄 Uploading... ${progress}%` : '🚀 UPLOAD COM TUS'}
       </button>
 
       {result && (
@@ -88,16 +96,17 @@ export default function TestUploadPage() {
 
       <div style={{ margin: '40px 0', backgroundColor: '#222', padding: '20px', borderRadius: '8px' }}>
         <h3>📋 Logs do Console:</h3>
-        <p>Abra o Console do Browser (F12) para ver todos os logs detalhados</p>
-        <p>Procure por emojis: 🔥 📁 🚀 ✅ ❌</p>
+        <p>Abra o Console do Browser (F12) para ver todos os logs detalhados do TUS.</p>
+        <p>Procure por emojis: 🔥 📁 🚀 📊 📦 ✅ ❌</p>
       </div>
 
       <div style={{ margin: '20px 0', fontSize: '14px', color: '#888' }}>
         <p><strong>Instruções:</strong></p>
-        <p>1. Selecione um vídeo grande (300MB+) do iPhone</p>
-        <p>2. Clique em "UPLOAD TESTE"</p>
-        <p>3. Veja os logs detalhados no Console</p>
-        <p>4. Se funcionar, verá "✅ SUCESSO" com a URL</p>
+        <p>1. Abra o console (F12)</p>
+        <p>2. Faça login na aplicação para ter uma sessão Supabase ativa (o upload TUS precisa de autenticação).</p>
+        <p>3. Selecione um vídeo grande (300MB+)</p>
+        <p>4. Clique em "UPLOAD COM TUS"</p>
+        <p>5. Acompanhe o progresso do upload em chunks no console.</p>
       </div>
     </div>
   )
