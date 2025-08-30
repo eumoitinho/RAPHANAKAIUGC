@@ -269,7 +269,7 @@ export default function TestFinaliPhonePage() {
         borderRadius: '8px'
       }}>
         <h3 style={{ color: '#0af', fontSize: '24px' }}>🔬 COMO FUNCIONA:</h3>
-        <p><strong>Arquivos >6MB:</strong> TUS Chunked Upload (solução para parar aos 30%)</p>
+        <p><strong>Arquivos &gt;6MB:</strong> TUS Chunked Upload (solução para parar aos 30%)</p>
         <p><strong>Arquivos &lt;6MB:</strong> Upload direto normal</p>
         <p><strong>Timeout:</strong> 10 minutos máximo</p>
         <p><strong>Fallback:</strong> Se TUS falhar, tenta upload direto</p>
