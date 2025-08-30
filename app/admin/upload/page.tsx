@@ -2,15 +2,17 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useTUSUpload } from '@/hooks/use-tus-upload'
-import { VideoThumbnailSelector } from '@/components/upload/video-thumbnail-selector'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
-import { UploadCloud, CheckCircle, AlertCircle, Film, Image as ImageIcon, PartyPopper } from 'lucide-react'
 
-// Categorias Centrais do seu negócio
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { UploadCloud, CheckCircle, AlertCircle } from 'lucide-react'
+
 const CATEGORIES = [
   { id: 'ensaio-feminino', name: 'Ensaio Feminino' },
   { id: 'ensaio-casal', name: 'Ensaio de Casal' },
@@ -20,77 +22,67 @@ const CATEGORIES = [
   { id: 'outro', name: 'Outro' },
 ]
 
-export default function AdminUploadPage() {
-  const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [thumbnailBlob, setThumbnailBlob] = useState<Blob | null>(null)
-  
+export default function AdminUploadPageOriginal() {
+  const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   
-  const { uploadFile: tusUpload, uploading, progress, error } = useTUSUpload()
-  
-  const [status, setStatus] = useState<'idle' | 'uploading-video' | 'uploading-thumbnail' | 'saving' | 'success' | 'error'>('idle')
-  const [statusMessage, setStatusMessage] = useState('')
-  const [resultUrl, setResultUrl] = useState('')
+  const { uploadFile, uploading, progress, error: tusError } = useTUSUpload()
 
-  // Lógica de Login Anônimo Automático
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
+  const [statusMessage, setStatusMessage] = useState('')
+
+  // Autenticação anônima e automática
   useEffect(() => {
     const ensureAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('Sessão não encontrada. Realizando login anônimo...');
-        await supabase.auth.signInAnonymously();
+        console.log('Sessão não encontrada. Realizando login anônimo automático...');
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) {
+            console.error('Falha no login anônimo:', error);
+            setStatus('error');
+            setStatusMessage(`Falha na autenticação automática: ${error.message}`);
+        }
       }
     };
     ensureAuth();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.type.startsWith('video/')) {
-      setVideoFile(file)
-      setTitle(file.name.split('.').slice(0, -1).join(' ').replace(/[-_]/g, ' '))
+    const selectedFile = e.target.files?.[0]
+    if (selectedFile) {
+      setFile(selectedFile)
+      setTitle(selectedFile.name.split('.').slice(0, -1).join(' ').replace(/[-_]/g, ' '))
       setStatus('idle')
-      setThumbnailBlob(null)
-      setResultUrl('')
-    } else {
-      setStatus('error')
-      setStatusMessage('Por favor, selecione um arquivo de vídeo válido.')
-      setVideoFile(null)
     }
   }
 
-  const handleUpload = useCallback(async () => {
-    if (!videoFile || !thumbnailBlob || !title || !category) {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!file || !title || !category) {
       setStatus('error')
-      setStatusMessage('Preencha todos os campos: vídeo, thumbnail, título e categoria.')
+      setStatusMessage('Todos os campos são obrigatórios.')
       return
     }
 
-    setStatus('uploading-video')
-    setStatusMessage('Enviando vídeo principal...')
+    setStatus('uploading')
+    setStatusMessage('Iniciando upload com TUS...')
 
     try {
-      const videoFileExt = videoFile.name.split('.').pop() || 'mp4'
-      const videoFileName = `uploads/videos/${Date.now()}.${videoFileExt}`
-      const videoResult = await tusUpload({
-        file: videoFile,
+      const fileExt = file.name.split('.').pop() || 'mp4'
+      const videoFileName = `uploads/videos/${Date.now()}.${fileExt}`
+      
+      // Upload do vídeo principal com TUS
+      const videoResult = await uploadFile({
+        file: file,
         bucketName: 'media',
         fileName: videoFileName,
       })
 
-      setStatus('uploading-thumbnail')
-      setStatusMessage('Enviando thumbnail...')
-      const thumbnailFileName = `uploads/thumbnails/${Date.now()}.jpg`
-      const thumbnailFile = new File([thumbnailBlob], thumbnailFileName, { type: 'image/jpeg' })
-      const thumbnailResult = await tusUpload({
-        file: thumbnailFile,
-        bucketName: 'media',
-        fileName: thumbnailFileName,
-      })
-
-      setStatus('saving')
-      setStatusMessage('Salvando informações no banco de dados...')
+      // A thumbnail será gerada pela VPS/backend, então não precisamos enviá-la aqui.
+      // Apenas salvamos os metadados.
+      setStatusMessage('Salvando informações do vídeo...')
       const response = await fetch('/api/save-media-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,144 +90,115 @@ export default function AdminUploadPage() {
           title,
           category,
           video_url: videoResult.url,
-          thumbnail_url: thumbnailResult.url,
           video_path: videoResult.path,
-          thumbnail_path: thumbnailResult.path,
+          // A thumbnail_url e thumbnail_path serão adicionadas pelo backend após o processamento
         }),
       })
 
-      if (!response.ok) throw new Error(await response.text())
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Falha ao salvar os dados.')
+      }
 
       setStatus('success')
-      setStatusMessage(`O vídeo "${title}" foi publicado com sucesso!`)
-      setResultUrl(videoResult.url) // Assumindo que a URL do vídeo é a principal
-      setVideoFile(null)
+      setStatusMessage(`Vídeo "${title}" enviado com sucesso! Ele será processado em breve.`)
+      // Limpar formulário
+      setFile(null)
+      setTitle('')
+      setCategory('')
 
-    } catch (e: any) {
-      console.error('❌ Erro no processo de upload:', e)
+    } catch (err: any) {
+      console.error('❌ Erro no processo de upload:', err)
       setStatus('error')
-      setStatusMessage(e.message || 'Ocorreu um erro desconhecido durante o upload.')
+      setStatusMessage(err.message || tusError || 'Ocorreu um erro desconhecido.')
     }
-  }, [videoFile, thumbnailBlob, title, category, tusUpload])
-
-  const resetForm = () => {
-    setVideoFile(null)
-    setThumbnailBlob(null)
-    setTitle('')
-    setCategory('')
-    setStatus('idle')
-    setResultUrl('')
-  }
+  }, [file, title, category, uploadFile, tusError])
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-5xl mx-auto">
-        
-        {!videoFile && status !== 'success' && (
-          <div className="text-center py-20">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-500">
-              Uploader de Mídia
-            </h1>
-            <p className="mt-4 text-lg text-gray-400">Selecione um vídeo para iniciar o processo de upload.</p>
-            <div className="mt-10">
-              <Label htmlFor="video-upload-main" className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold rounded-lg cursor-pointer text-lg shadow-lg transition-transform transform hover:scale-105">
-                <UploadCloud className="w-6 h-6 mr-3" />
-                Selecionar Vídeo
-              </Label>
-              <Input id="video-upload-main" type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
-            </div>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className="text-center py-20 bg-[#111] rounded-xl border border-green-500/30">
-            <PartyPopper className="w-16 h-16 mx-auto text-green-400" />
-            <h2 className="mt-6 text-3xl font-bold text-green-400">Upload Concluído!</h2>
-            <p className="mt-2 text-gray-300">{statusMessage}</p>
-            {resultUrl && (
-              <a href={resultUrl} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block text-pink-400 underline">Ver vídeo publicado</a>
-            )}
-            <Button onClick={resetForm} className="mt-8">Enviar outro vídeo</Button>
-          </div>
-        )}
-
-        {videoFile && status !== 'success' && (
-          <div className="space-y-10">
-            <div className="text-left">
-              <h1 className="text-3xl font-bold tracking-tight text-white">Publicar Novo Vídeo</h1>
-              <p className="mt-2 text-md text-gray-400">Siga os 3 passos para publicar seu vídeo com a melhor qualidade.</p>
-            </div>
-
-            <div className="bg-[#1c1c1c] border border-[#333] rounded-lg p-6 space-y-6">
-              <Label className="text-xl font-semibold text-white flex items-center gap-2">
-                <Film className="w-6 h-6 text-[#d87093]" />
-                Passo 1: Selecione o Vídeo
-              </Label>
-              <div className="flex items-center space-x-4">
-                <p className="text-md text-green-400 bg-green-900/50 px-3 py-1 rounded-md">{(videoFile.size / 1024 / 1024).toFixed(2)} MB - {videoFile.name}</p>
-                <Button variant="outline" size="sm" onClick={resetForm}>Cancelar</Button>
+    <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload de Vídeo</CradTitle>
+            <CardDescription>
+              Envie um novo vídeo para o portfólio. O sistema usará TUS para uploads robustos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="title">Título do Vídeo</Label>
+                <Input 
+                  id="title" 
+                  placeholder="Ex: Ensaio de verão na praia"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
               </div>
-            </div>
 
-            <div className="bg-[#1c1c1c] border border-[#333] rounded-lg p-6 space-y-6">
-              <Label className="text-xl font-semibold text-white flex items-center gap-2">
-                <ImageIcon className="w-6 h-6 text-[#d87093]" />
-                Passo 2: Gere e Selecione a Thumbnail
-              </Label>
-              <VideoThumbnailSelector videoFile={videoFile} onThumbnailSelected={setThumbnailBlob} />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select onValueChange={setCategory} value={category} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {thumbnailBlob && (
-              <div className="bg-[#1c1c1c] border border-[#333] rounded-lg p-6 space-y-6">
-                <Label className="text-xl font-semibold text-white">Passo 3: Adicione os Detalhes Finais</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                    <div>
-                        <Label htmlFor="title" className="text-gray-300">Título do Vídeo</Label>
-                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Ensaio criativo na Av. Paulista" className="mt-1"/>
-                    </div>
-                    <div>
-                        <Label htmlFor="category" className="text-gray-300">Categoria Principal</Label>
-                        <Select onValueChange={setCategory} value={category}>
-                        <SelectTrigger id="category" className="mt-1">
-                            <SelectValue placeholder="Selecione a categoria do projeto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                        </SelectContent>
-                        </Select>
-                    </div>
+              <div className="space-y-2">
+                <Label htmlFor="video-file">Arquivo de Vídeo</Label>
+                <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} required />
+                {file && <p className="text-sm text-muted-foreground">Selecionado: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</p>}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={uploading || !file}>
+                {uploading ? `Enviando... ${progress}%` : "Enviar Vídeo"}
+                <UploadCloud className="ml-2 h-4 w-4" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Status do Upload</CardTitle>
+            <CardDescription>Acompanhe o processo de envio aqui.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex items-center justify-center">
+            <div className="w-full space-y-4 text-center">
+              {status === 'idle' && <p className="text-muted-foreground">Aguardando o envio de um arquivo...</p>}
+              
+              {uploading && (
+                <div className="space-y-2">
+                  <p className="font-medium">Enviando o vídeo...</p>
+                  <Progress value={progress} className="w-full" />
+                  <p className="text-sm text-muted-foreground">{progress}% concluído</p>
                 </div>
-              </div>
-            )}
-            
-            {title && category && thumbnailBlob && (
-              <div className="pt-6 space-y-4">
-                <Button onClick={handleUpload} disabled={uploading} className="w-full font-bold py-4 px-4 rounded-lg text-lg transition-all duration-300 ease-in-out bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                  {uploading ? `Enviando... ${progress}%` : 'Publicar Vídeo'}
-                  <UploadCloud className="ml-2 w-5 h-5" />
-                </Button>
-              </div>
-            )}
-            
-            {uploading && (
-              <div className="text-center p-4 bg-[#1c1c1c] rounded-lg border border-yellow-500/30">
-                <p className="text-yellow-400 font-medium">{statusMessage}</p>
-                <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
-                  <div className="bg-gradient-to-r from-pink-500 to-purple-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-            )}
+              )}
 
-            {status === 'error' && (
-                <div className="p-4 bg-red-900/50 rounded-lg border border-red-500/50 text-center">
-                    <AlertCircle className="h-6 w-6 mx-auto text-red-400 mb-2" />
-                    <h3 className="text-lg font-bold text-red-400">Ocorreu um Erro</h3>
-                    <p className="text-red-300">{statusMessage || error}</p>
-                </div>
-            )}
-          </div>
-        )}
+              {status === 'success' && (
+                <Alert className="border-green-500 text-green-500">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>Sucesso!</AlertTitle>
+                  <AlertDescription>{statusMessage}</AlertDescription>
+                </Alert>
+              )}
+
+              {status === 'error' && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Erro no Upload</AlertTitle>
+                  <AlertDescription>{statusMessage}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </main>
   )
 }
