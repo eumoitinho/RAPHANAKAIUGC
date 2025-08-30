@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TESTE UPLOAD DIRETO - iPhone 300MB</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #fff; padding: 20px; }
+        .log { background: #222; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 15px 30px; font-size: 16px; margin: 10px; cursor: pointer; }
+        input[type="file"] { padding: 10px; margin: 10px; }
+        .success { color: #4f4; }
+        .error { color: #f44; }
+        .info { color: #44f; }
+    </style>
+</head>
+<body>
+    <h1>🔥 TESTE DIRETO - UPLOAD iPhone 300MB</h1>
+    <p>Este teste simula exatamente o que o iPhone faz</p>
+    
+    <input type="file" id="fileInput" accept="video/*" />
+    <button onclick="testarUpload()">🚀 UPLOAD DIRETO</button>
+    <button onclick="limparLogs()">🗑️ LIMPAR</button>
+    
+    <div id="logs"></div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2'
+
+        const supabaseUrl = 'https://qyqvyihwfxzicjnnuudh.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5cXZ5aWh3Znh6aWNqbm51dWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE1NDQ2MTcsImV4cCI6MjA0NzEyMDYxN30.WpvuKNHt2iw4d3jXPaG2GsYZTLCNLFCYYt3zSbzRGx0'
+        
+        const supabase = createClient(supabaseUrl, supabaseKey)
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs')
+            const logDiv = document.createElement('div')
+            logDiv.className = `log ${type}`
+            logDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`
+            logsDiv.insertBefore(logDiv, logsDiv.firstChild)
+        }
+        
+        window.limparLogs = function() {
+            document.getElementById('logs').innerHTML = ''
+        }
+        
+        window.testarUpload = async function() {
+            const fileInput = document.getElementById('fileInput')
+            const file = fileInput.files[0]
+            
+            if (!file) {
+                log('❌ Selecione um arquivo primeiro!', 'error')
+                return
+            }
+            
+            log(`🎬 ARQUIVO SELECIONADO: ${file.name}`, 'info')
+            log(`📏 TAMANHO: ${(file.size/1024/1024).toFixed(2)}MB`, 'info')
+            log(`🎭 TIPO: ${file.type}`, 'info')
+            
+            try {
+                // STEP 1: Upload direto ao Supabase
+                log('🚀 INICIANDO UPLOAD DIRETO...', 'info')
+                
+                const fileName = `${Date.now()}-${file.name}`
+                const filePath = `2025/1/${fileName}`
+                
+                log(`📁 CAMINHO: ${filePath}`, 'info')
+                
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    })
+                
+                if (error) {
+                    log(`❌ ERRO SUPABASE: ${error.message}`, 'error')
+                    log(`❌ DETALHES: ${JSON.stringify(error)}`, 'error')
+                    return
+                }
+                
+                log(`✅ UPLOAD SUCESSO!`, 'success')
+                log(`📂 DATA: ${JSON.stringify(data)}`, 'success')
+                
+                // STEP 2: Pegar URL pública
+                const { data: urlData } = supabase.storage
+                    .from('media')
+                    .getPublicUrl(data.path)
+                
+                log(`🔗 URL PÚBLICA: ${urlData.publicUrl}`, 'success')
+                
+                // STEP 3: Testar salvar no banco
+                log('💾 TESTANDO SAVE NO BANCO...', 'info')
+                
+                const response = await fetch('/api/save-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: `Teste ${Date.now()}`,
+                        description: 'Teste direto iPhone',
+                        category: 'ADS',
+                        fileUrl: urlData.publicUrl,
+                        thumbnailUrl: urlData.publicUrl,
+                        fileType: 'video',
+                        fileName: file.name,
+                        fileSize: file.size,
+                        supabasePath: filePath
+                    })
+                })
+                
+                if (!response.ok) {
+                    const errorText = await response.text()
+                    log(`❌ ERRO API: ${response.status} - ${errorText}`, 'error')
+                    return
+                }
+                
+                const result = await response.json()
+                log(`✅ SALVO NO BANCO: ${JSON.stringify(result)}`, 'success')
+                
+                log('🎉🎉🎉 SUCESSO TOTAL! FUNCIONOU!', 'success')
+                
+            } catch (error) {
+                log(`❌ ERRO GERAL: ${error.message}`, 'error')
+                log(`❌ STACK: ${error.stack}`, 'error')
+            }
+        }
+    </script>
+</body>
+</html>

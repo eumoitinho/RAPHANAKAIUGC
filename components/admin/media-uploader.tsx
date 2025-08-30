@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { useFastMediaUpload } from "@/hooks/use-fast-media-upload"
+import { useUltraSimpleUpload } from "@/hooks/use-ultra-simple-upload"
 import { generateVideoThumbnail, generateMultipleThumbnails, type ThumbnailResult } from "@/lib/video-thumbnail"
 
 export function MediaUploader() {
@@ -21,7 +21,7 @@ export function MediaUploader() {
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [customThumbnailFile, setCustomThumbnailFile] = useState<File | null>(null)
   
-  const { uploadFile, uploading, uploadProgress } = useFastMediaUpload()
+  const { uploadFile, uploading, uploadProgress } = useUltraSimpleUpload()
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
@@ -52,50 +52,42 @@ export function MediaUploader() {
       const previewUrl = URL.createObjectURL(file)
       setMediaPreview(previewUrl)
 
-      // Para vídeos, gerar thumbnails automaticamente após delay
+      // Para vídeos, tentar gerar thumbnails (opcional)
       if (isVideo) {
-        console.log('🎬 VÍDEO DETECTADO - Iniciando geração de thumbnails')
+        console.log('🎬 VÍDEO DETECTADO - PRONTO PARA UPLOAD')
         
-        // Mostrar toast de início
         toast({
-          title: "🎬 Vídeo carregado",
-          description: "Gerando thumbnails automáticas..."
+          title: "🎬 Vídeo carregado!",
+          description: "Pronto para upload. Thumbnails são opcionais."
         })
 
-        // Usar setTimeout para evitar bloquear a UI
+        // Tentar gerar thumbnails em background (não bloqueia)
         setTimeout(async () => {
           try {
-            console.log('🚀 INICIANDO GERAÇÃO DE THUMBNAILS')
+            console.log('📸 TENTANDO GERAR THUMBNAILS OPCIONAIS')
             
-            // Gerar thumbnails em diferentes momentos
-            const timePoints = [1, 2, 5] // 1s, 2s, 5s
+            const timePoints = [1, 3] // Apenas 2 para ser rápido
             const thumbnails = await generateMultipleThumbnails(file, timePoints, {
               width: 320,
               height: 180,
-              quality: 0.8
+              quality: 0.7
             })
 
             if (thumbnails.length > 0) {
-              console.log(`✅ ${thumbnails.length} THUMBNAILS GERADAS`)
+              console.log(`✅ ${thumbnails.length} THUMBNAILS OPCIONAIS GERADAS`)
               setAvailableThumbnails(thumbnails)
-              setSelectedThumbnail(thumbnails[0]) // Primeira automaticamente
+              setSelectedThumbnail(thumbnails[0])
 
               toast({
-                title: "✅ Thumbnails prontas!",
-                description: `${thumbnails.length} opções geradas com sucesso`
+                title: "✅ Thumbnails geradas!",
+                description: `${thumbnails.length} opções disponíveis (opcional)`
               })
-            } else {
-              throw new Error('Nenhuma thumbnail foi gerada')
             }
           } catch (error) {
-            console.error('❌ ERRO GERANDO THUMBNAILS:', error)
-            toast({
-              title: "⚠️ Erro nas thumbnails",
-              description: "Não foi possível gerar thumbnails. Envie uma personalizada.",
-              variant: "destructive"
-            })
+            console.warn('⚠️ Thumbnails falharam (ok, são opcionais):', error)
+            // Não mostrar erro pois thumbnails são opcionais
           }
-        }, 500) // 500ms delay
+        }, 1000)
       }
     }
   }
@@ -139,102 +131,96 @@ export function MediaUploader() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validações básicas
+    console.log('🔥 SUBMIT INICIADO - VERSÃO ULTRA SIMPLES')
+
+    // Validação básica SEM thumbnail obrigatória
     if (!mediaFile || !title.trim() || selectedCategories.length === 0) {
+      console.log('❌ VALIDAÇÃO FALHOU')
       toast({
-        title: "❌ Campos obrigatórios",
-        description: "Preencha título, selecione categoria e arquivo",
+        title: "❌ Campos obrigatórios", 
+        description: "Preencha título, categoria e arquivo",
         variant: "destructive",
       })
       return
     }
 
-    // Para vídeos, verificar se tem thumbnail
-    if (isVideo && !selectedThumbnail) {
-      toast({
-        title: "❌ Thumbnail necessária",
-        description: "Selecione uma thumbnail ou envie uma personalizada",
-        variant: "destructive",
-      })
-      return
-    }
+    console.log('✅ VALIDAÇÃO PASSOU - CONTINUANDO')
 
     try {
-      console.log(`🚀 UPLOAD DIRETO INICIADO: ${mediaFile.name}`)
+      console.log(`🚀 INICIANDO UPLOAD ULTRA SIMPLES: ${mediaFile.name}`)
       
-      // 1. Upload do arquivo principal
+      // STEP 1: Upload do arquivo
+      console.log('📤 STEP 1: FAZENDO UPLOAD DO ARQUIVO')
       const uploadResult = await uploadFile(mediaFile)
-      console.log(`✅ ARQUIVO ENVIADO:`, uploadResult.url)
+      console.log('✅ STEP 1 COMPLETO - URL:', uploadResult.url)
 
-      // 2. Upload da thumbnail se for personalizada
-      let thumbnailUrl = uploadResult.url // Default para vídeos sem thumbnail
+      // STEP 2: Salvar no banco (sem complexidade de thumbnail)
+      console.log('💾 STEP 2: SALVANDO NO BANCO DE DADOS')
       
-      if (selectedThumbnail && customThumbnailFile) {
-        try {
-          console.log('📤 ENVIANDO THUMBNAIL PERSONALIZADA')
-          const thumbnailResult = await uploadFile(customThumbnailFile)
-          thumbnailUrl = thumbnailResult.url
-          console.log(`✅ THUMBNAIL ENVIADA:`, thumbnailUrl)
-        } catch (thumbError) {
-          console.error('❌ Erro thumbnail:', thumbError)
-        }
-      } else if (selectedThumbnail && !customThumbnailFile) {
-        // Upload da thumbnail gerada automaticamente
-        try {
-          console.log('📤 ENVIANDO THUMBNAIL AUTOMÁTICA')
-          const thumbFile = new File([selectedThumbnail.blob], `thumb_${Date.now()}.jpg`, {
-            type: 'image/jpeg'
-          })
-          const thumbnailResult = await uploadFile(thumbFile)
-          thumbnailUrl = thumbnailResult.url
-          console.log(`✅ THUMBNAIL AUTO ENVIADA:`, thumbnailUrl)
-        } catch (thumbError) {
-          console.error('❌ Erro thumbnail auto:', thumbError)
-        }
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || '',
+        category: selectedCategories[0],
+        fileUrl: uploadResult.url,
+        thumbnailUrl: uploadResult.url, // Mesma URL por simplicidade
+        fileType: isVideo ? 'video' : 'photo',
+        fileName: mediaFile.name,
+        fileSize: mediaFile.size,
+        supabasePath: ''
       }
-
-      // 3. Salvar no banco
-      console.log('💾 SALVANDO NO BANCO...')
+      
+      console.log('📋 DADOS PARA SALVAR:', JSON.stringify(payload, null, 2))
+      
       const response = await fetch('/api/save-media', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category: selectedCategories[0],
-          fileUrl: uploadResult.url,
-          thumbnailUrl,
-          fileType: isVideo ? 'video' : 'photo',
-          fileName: mediaFile.name,
-          fileSize: mediaFile.size,
-          supabasePath: uploadResult.url.split('/').slice(-3).join('/')
-        })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
       })
 
+      console.log('📡 RESPOSTA DO SERVIDOR - STATUS:', response.status)
+      
       if (!response.ok) {
-        throw new Error('Falha ao salvar no banco')
+        const errorText = await response.text()
+        console.error('❌ ERRO DA API:', errorText)
+        throw new Error(`Servidor retornou erro ${response.status}: ${errorText}`)
       }
 
-      console.log('✅ SALVO NO BANCO')
+      const result = await response.json()
+      console.log('✅ STEP 2 COMPLETO - RESULTADO:', result)
+
+      console.log('🎉🎉🎉 SUCESSO TOTAL CONFIRMADO!')
 
       toast({
-        title: "🎉 SUCESSO TOTAL!",
-        description: `"${title}" foi enviado completamente!`,
+        title: "🎉 FUNCIONOU!",
+        description: `"${title}" foi salvo com sucesso!`,
       })
 
+      // Marcar sucesso
       setUploadSuccess(true)
+      
+      // Resetar após 3 segundos
       setTimeout(() => {
+        console.log('🔄 RESETANDO FORMULÁRIO')
         resetForm()
-      }, 2000)
+      }, 3000)
 
-    } catch (error) {
-      console.error('❌ ERRO TOTAL:', error)
+    } catch (error: any) {
+      console.error('❌❌❌ ERRO CAPTURADO:', error)
+      console.error('❌ TIPO:', typeof error)
+      console.error('❌ MESSAGE:', error?.message)
+      console.error('❌ STACK:', error?.stack)
       
       toast({
-        title: "❌ FALHA COMPLETA",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        title: "❌ ERRO DETECTADO",
+        description: `${error?.message || 'Erro desconhecido'}`,
         variant: "destructive",
       })
+      
+      // NÃO resetar em caso de erro para debug
+      console.log('🚫 NÃO RESETANDO - DEIXANDO PARA DEBUG')
     }
   }
 
@@ -567,8 +553,7 @@ export function MediaUploader() {
               disabled={Boolean(
                 !mediaFile || 
                 !title.trim() || 
-                selectedCategories.length === 0 || 
-                (isVideo && !selectedThumbnail)
+                selectedCategories.length === 0
               )}
             >
               <Upload className="w-6 h-6 mr-3" />
@@ -599,9 +584,9 @@ export function MediaUploader() {
               </div>
               {isVideo && (
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${selectedThumbnail ? 'bg-green-400' : 'bg-gray-500'}`} />
-                  <span className={selectedThumbnail ? 'text-green-400' : 'text-gray-500'}>
-                    Thumbnail selecionada
+                  <div className={`w-2 h-2 rounded-full ${selectedThumbnail ? 'bg-green-400' : 'bg-yellow-500'}`} />
+                  <span className={selectedThumbnail ? 'text-green-400' : 'text-yellow-500'}>
+                    {selectedThumbnail ? 'Thumbnail selecionada' : 'Thumbnail opcional'}
                   </span>
                 </div>
               )}
