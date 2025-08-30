@@ -170,7 +170,7 @@ export default function TestTUSPage() {
           <p><strong>Tamanho:</strong> {(file.size/1024/1024).toFixed(2)} MB</p>
           <p><strong>Tipo:</strong> {file.type || '❌ VAZIO (será detectado por extensão)'}</p>
           {file.size > 6*1024*1024 && (
-            <p style={{ color: '#0f0', fontWeight: 'bold' }}>✅ ARQUIVO >6MB - PERFEITO PARA TUS!</p>
+            <p style={{ color: '#0f0', fontWeight: 'bold' }}>✅ ARQUIVO &gt;6MB - PERFEITO PARA TUS!</p>
           )}
         </div>
       )}
