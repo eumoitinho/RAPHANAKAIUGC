@@ -19,6 +19,11 @@ export default function DebugUploadPage() {
     const logMessage = `[${timestamp}] ${message}`
     console.log(logMessage)
     setLogs(prev => [logMessage, ...prev])
+    
+    // FORÇA ALERT NO iPhone PARA ERROS
+    if (message.includes('❌')) {
+      alert(`ERRO: ${message}`)
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,9 +83,12 @@ export default function DebugUploadPage() {
       const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any
       
       if (error) {
-        addLog(`❌ ERRO SUPABASE: ${error.message}`)
+        const errorMsg = `❌ ERRO SUPABASE: ${error.message}`
+        addLog(errorMsg)
         addLog(`❌ DETALHES: ${JSON.stringify(error)}`)
         setResult(`ERRO: ${error.message}`)
+        // DUPLO ALERT PARA GARANTIR QUE O iPhone VÊ
+        alert(`UPLOAD FALHOU!\n\n${error.message}\n\nDetalhes: ${JSON.stringify(error)}`)
         return
       }
       
@@ -98,8 +106,11 @@ export default function DebugUploadPage() {
       setResult(`SUCESSO: ${publicUrl}`)
       
     } catch (error: any) {
-      addLog(`❌ ERRO GERAL: ${error.message}`)
+      const errorMsg = `❌ ERRO GERAL: ${error.message}`
+      addLog(errorMsg)
       setResult(`ERRO: ${error.message}`)
+      // ALERT OBRIGATÓRIO PARA iPhone VER
+      alert(`ERRO GERAL NO UPLOAD!\n\n${error.message}\n\nStack: ${error.stack || 'N/A'}`)
     } finally {
       setUploading(false)
     }
@@ -128,8 +139,11 @@ export default function DebugUploadPage() {
       
       if (!response.ok) {
         const errorText = await response.text()
-        addLog(`❌ API ERRO: ${response.status} - ${errorText}`)
+        const errorMsg = `❌ API ERRO: ${response.status} - ${errorText}`
+        addLog(errorMsg)
         setResult(`ERRO API: ${errorText}`)
+        // ALERT PARA API ERROR
+        alert(`API FALHOU!\n\nStatus: ${response.status}\nErro: ${errorText}`)
         return
       }
       
@@ -140,8 +154,11 @@ export default function DebugUploadPage() {
       setResult(`SUCESSO API: ${result.url || result.message}`)
       
     } catch (error: any) {
-      addLog(`❌ ERRO API: ${error.message}`)
+      const errorMsg = `❌ ERRO API: ${error.message}`
+      addLog(errorMsg)
       setResult(`ERRO: ${error.message}`)
+      // ALERT FINAL PARA API
+      alert(`ERRO NA API!\n\n${error.message}\n\nStack: ${error.stack || 'N/A'}`)
     } finally {
       setUploading(false)
     }
@@ -243,6 +260,7 @@ export default function DebugUploadPage() {
         overflowY: 'scroll'
       }}>
         <h3 style={{ color: '#0af' }}>📊 LOGS EM TEMPO REAL:</h3>
+        <p style={{ color: '#f84', fontSize: '16px', fontWeight: 'bold' }}>🚨 TODOS OS ERROS APARECEM EM ALERT NO iPhone! 🚨</p>
         {logs.length === 0 ? (
           <p style={{ color: '#777' }}>Selecione um arquivo para ver logs...</p>
         ) : (
