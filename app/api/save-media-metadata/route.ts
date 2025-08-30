@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-// Use a chave de serviço para ter permissões de escrita no servidor
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -12,34 +11,37 @@ export async function POST(request: Request) {
   try {
     const { 
       title, 
-      description, // Campo de descrição adicionado
+      description, 
       category, 
-      video_url, 
+      item_type, // 'video' or 'image'
+      video_url, // for images, this will be the image_url
       thumbnail_url, 
-      video_path, 
+      video_path, // for images, this will be the image_path
       thumbnail_path 
     } = await request.json()
 
-    // Validação dos campos essenciais
-    if (!title || !category || !video_url || !thumbnail_url || !video_path || !thumbnail_path) {
+    if (!title || !category || !item_type || !video_url || !thumbnail_url || !video_path || !thumbnail_path) {
       return NextResponse.json({ message: 'Dados incompletos. Todos os campos são necessários.' }, { status: 400 })
     }
 
-    console.log('✅ API RECEBEU: Salvando metadados para o vídeo:', { title, description, category });
+    console.log(`✅ API RECEBEU (${item_type}):`, { title, description, category });
 
+    // No Supabase, vamos continuar usando as colunas existentes.
+    // A coluna `item_type` vai diferenciar o conteúdo.
+    // A coluna `video_url` armazenará a URL tanto do vídeo quanto da imagem principal.
     const { data, error } = await supabase
-      .from('portfolio_items') // Certifique-se que o nome da tabela está correto
+      .from('portfolio_items')
       .insert([
         {
           title,
-          description, // Salvando a descrição
-          category, // Salvando a categoria correta
+          description,
+          category,
+          item_type, // Salva 'video' ou 'image'
           video_url,
           thumbnail_url,
-          video_path, 
-          thumbnail_path, 
-          status: 'active', // ou 'pending' se precisar de aprovação
-          item_type: 'video' // Adicionando um tipo para diferenciar de fotos no futuro
+          video_path,
+          thumbnail_path,
+          status: 'active', 
         },
       ])
       .select()
